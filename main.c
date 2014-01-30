@@ -14,6 +14,7 @@
 #define L3GD20_CTRLREG1 0x20
 #define LIS302DL 0b00111000
 #define LIS302DL_WHOAMI 0xf
+#define LIS302DL_CTRLREG1 0x20
 
 void twStart () {
 	/* disable stop, reset twint, enable start, enable i2c */
@@ -232,7 +233,7 @@ int main(void) {
 	/* check status code */
 	if ((status = TW_STATUS) == TW_START) {
 		/* write device address and write bit */
-		TWDR = L3GD20 | TW_WRITE;
+		TWDR = LIS302DL | TW_WRITE;
 		if (TWCR & (1 << TWWC)) {
 			printf("write collision\n");
 		}
@@ -244,7 +245,7 @@ int main(void) {
 		}
 		
 		/* write subaddress (actually i2c data) */
-		TWDR = L3GD20_CTRLREG1;
+		TWDR = LIS302DL_CTRLREG1;
 		if (TWCR & (1 << TWWC)) {
 			printf("write collision\n");
 		}
@@ -256,7 +257,7 @@ int main(void) {
 		}
 					
 		/* write actual data */
-		TWDR = 0b00001111;
+		TWDR = 0b01000111;
 		if (TWCR & (1 << TWWC)) {
 			printf("write collision\n");
 		}
@@ -274,8 +275,8 @@ int main(void) {
 	}
 
 	while (1) {
-		unsigned char reg[] = {0x28, 0x29, 0x2a, 0x2b, 0x2d};
-		unsigned char val[6];
+		unsigned char reg[] = {0x29, 0x2b, 0x2d};
+		signed char val[6];
 		//unsigned char reg[] = {0xf, 0x20, 0x21, 0x22, 0x23, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2d, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f};
 		for (unsigned char i = 0; i < sizeof (reg)/sizeof(*reg); i++) {
 			twStart ();
@@ -286,7 +287,7 @@ int main(void) {
 			if ((status = TW_STATUS) == TW_START) {
 		
 				/* write device address and write bit */
-				TWDR = L3GD20 | TW_WRITE;
+				TWDR = LIS302DL | TW_WRITE;
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
@@ -318,7 +319,7 @@ int main(void) {
 				}
 			
 				/* write device address and read bit */
-				TWDR = L3GD20 | TW_READ;
+				TWDR = LIS302DL | TW_READ;
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
@@ -348,7 +349,8 @@ int main(void) {
 				_delay_ms (1000);
 			}
 		}
-		printf ("%i/%i/%i\n", (val[1] << 8) | val[0], (val[3] << 8) | val[2], (val[5] << 8) | val[4]);
+		//printf ("%i/%i/%i\n", (val[1] << 8) | val[0], (val[3] << 8) | val[2], (val[5] << 8) | val[4]);
+		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
 	}
 
 	while (1);
