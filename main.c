@@ -230,7 +230,7 @@ int main(void) {
 	unsigned char status = 0x0;
 	
 	/* check status code */
-	if ((status = TW_STATUS) == 0x8) {
+	if ((status = TW_STATUS) == TW_START) {
 		/* write device address and write bit */
 		TWDR = L3GD20 | TW_WRITE;
 		if (TWCR & (1 << TWWC)) {
@@ -238,7 +238,7 @@ int main(void) {
 		}
 		twFlush ();
 		twWait ();
-		if ((status = TW_STATUS) == 0x18) {
+		if ((status = TW_STATUS) == TW_MT_SLA_ACK) {
 		} else {
 			printf ("fail with code %x\n", status);
 		}
@@ -250,7 +250,7 @@ int main(void) {
 		}
 		twFlush ();
 		twWait ();
-		if ((status = TW_STATUS) == 0x28) {
+		if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
 		} else {
 			printf ("fail with code %x\n", status);
 		}
@@ -262,7 +262,7 @@ int main(void) {
 		}
 		twFlush ();
 		twWait ();
-		if ((status = TW_STATUS) == 0x28) {
+		if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
 		} else {
 			printf ("fail with code %x\n", status);
 		}
@@ -283,7 +283,7 @@ int main(void) {
 			unsigned char status = 0x0;
 		
 			/* check status code */
-			if ((status = TW_STATUS) == 0x8) {
+			if ((status = TW_STATUS) == TW_START) {
 		
 				/* write device address and write bit */
 				TWDR = L3GD20 | TW_WRITE;
@@ -292,7 +292,7 @@ int main(void) {
 				}
 				twFlush ();
 				twWait ();
-				if ((status = TW_STATUS) == 0x18) {
+				if ((status = TW_STATUS) == TW_MT_SLA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
@@ -304,7 +304,7 @@ int main(void) {
 				}
 				twFlush ();
 				twWait ();
-				if ((status = TW_STATUS) == 0x28) {
+				if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
@@ -312,7 +312,7 @@ int main(void) {
 				/* repeated start */
 				twStart ();
 				twWait ();
-				if ((status = TW_STATUS) == 0x10) {
+				if ((status = TW_STATUS) == TW_REP_START) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
@@ -324,7 +324,7 @@ int main(void) {
 				}
 				twFlush ();
 				twWait ();
-				if ((status = TW_STATUS) == 0x40) {
+				if ((status = TW_STATUS) == TW_MR_SLA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
@@ -332,7 +332,7 @@ int main(void) {
 				/* clear twint and wait for response */
 				twFlush ();
 				twWait ();
-				if ((status = TW_STATUS) == 0x58) {
+				if ((status = TW_STATUS) == TW_MR_DATA_NACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
