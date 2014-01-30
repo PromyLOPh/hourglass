@@ -3,21 +3,17 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <util/twi.h>
 #include <stdio.h>
 
 /* cpu runs at 1mhz */
 
 /* i2c device addresses */
-#define L2GD20 0b11010100
-#define L2GD20_WHOAMI 0xf
-#define L2GD20_CTRLREG1 0x20
+#define L3GD20 0b11010100
+#define L3GD20_WHOAMI 0xf
+#define L3GD20_CTRLREG1 0x20
 #define LIS302DL 0b00111000
 #define LIS302DL_WHOAMI 0xf
-
-/* i2c constants */
-#define TW_READ 1
-#define TW_WRITE 0
-#define TW_STATUS (TWSR & 0xF8)
 
 void twStart () {
 	/* disable stop, reset twint, enable start, enable i2c */
@@ -139,7 +135,7 @@ void enumreg () {
 			printf ("start ok\nwriting dev address\n");
 			
 			/* write device address and write bit */
-			TWDR = L2GD20 | TW_WRITE;
+			TWDR = L3GD20 | TW_WRITE;
 			if (TWCR & (1 << TWWC)) {
 				printf("write collision\n");
 			}
@@ -180,7 +176,7 @@ void enumreg () {
 			printf ("writing read request\n");
 
 			/* write device address and read bit */
-			TWDR = L2GD20 | TW_READ;
+			TWDR = L3GD20 | TW_READ;
 			if (TWCR & (1 << TWWC)) {
 				printf("write collision\n");
 			}
@@ -236,7 +232,7 @@ int main(void) {
 	/* check status code */
 	if ((status = TW_STATUS) == 0x8) {
 		/* write device address and write bit */
-		TWDR = L2GD20 | TW_WRITE;
+		TWDR = L3GD20 | TW_WRITE;
 		if (TWCR & (1 << TWWC)) {
 			printf("write collision\n");
 		}
@@ -248,7 +244,7 @@ int main(void) {
 		}
 		
 		/* write subaddress (actually i2c data) */
-		TWDR = 0x20;
+		TWDR = L3GD20_CTRLREG1;
 		if (TWCR & (1 << TWWC)) {
 			printf("write collision\n");
 		}
@@ -290,7 +286,7 @@ int main(void) {
 			if ((status = TW_STATUS) == 0x8) {
 		
 				/* write device address and write bit */
-				TWDR = L2GD20 | TW_WRITE;
+				TWDR = L3GD20 | TW_WRITE;
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
@@ -322,7 +318,7 @@ int main(void) {
 				}
 			
 				/* write device address and read bit */
-				TWDR = L2GD20 | TW_READ;
+				TWDR = L3GD20 | TW_READ;
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
