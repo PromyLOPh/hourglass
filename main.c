@@ -1,12 +1,12 @@
-/* cpu freq */
+/* cpu runs at 1mhz */
 #define F_CPU 1000000
 
 #include <avr/io.h>
+#include <avr/interrupt.h>
 #include <util/delay.h>
 #include <util/twi.h>
 #include <stdio.h>
-
-/* cpu runs at 1mhz */
+#include <stdbool.h>
 
 /* i2c device addresses */
 #define L3GD20 0b11010100
@@ -16,29 +16,83 @@
 #define LIS302DL_WHOAMI 0xf
 #define LIS302DL_CTRLREG1 0x20
 
-void twStart () {
-	/* disable stop, reset twint, enable start, enable i2c */
-	TWCR = (TWCR & ~(1 << TWSTO)) | (1 << TWINT) | (1 << TWSTA) | (1 << TWEN);
+typedef enum {
+	TWST_WAIT = 0,
+	TWST_OK = 1,
+	TWST_ERR = 2,
+} twStatus;
+
+typedef struct {
+	uint8_t address;
+	uint8_t subaddress;
+	uint8_t data;
+	uint8_t step;
+	twStatus status;
+} twReq;
+
+volatile twReq twr;
+
+void twStartRaw () {
+	/* disable stop, enable interrupt, reset twint, enable start, enable i2c */
+	TWCR = (TWCR & ~(1 << TWSTO)) | (1 << TWIE) | (1 << TWINT) | (1 << TWSTA) | (1 << TWEN);
 }
 
-void twStop () {
-	/* disable start, reset twint, enable stop, enable i2c */
-	TWCR = (TWCR & ~(1 << TWSTA)) | (1 << TWINT) | (1 << TWSTO) | (1 << TWEN);
+void twStopRaw () {
+	/* disable start, enable interrupt, reset twint, enable stop, enable i2c */
+	TWCR = (TWCR & ~(1 << TWSTA)) | (1 << TWIE) | (1 << TWINT) | (1 << TWSTO) | (1 << TWEN);
 }
 
-void twFlush () {
-	/* disable start/stop, reset twint, enable i2c */
-	TWCR = (TWCR & ~((1 << TWSTA) | (1 << TWSTO))) | (1 << TWINT) | (1 << TWEN);
+void twFlushRaw () {
+	/* disable start/stop, enable interrupt, reset twint, enable i2c */
+	TWCR = (TWCR & ~((1 << TWSTA) | (1 << TWSTO) | (1 << TWEA))) | (1 << TWIE) | (1 << TWINT) | (1 << TWEN);
 }
 
-void twWait () {
+/* flush and send master ack */
+void twFlushContRaw () {
+	/* disable start/stop, enable interrupt, reset twint, enable i2c, send master ack */
+	TWCR = (TWCR & ~((1 << TWSTA) | (1 << TWSTO))) | (1 << TWIE) | (1 << TWINT) | (1 << TWEN) | (1 << TWEA);
+}
+
+void twWaitRaw () {
 	while (!(TWCR & (1 << TWINT)));
+}
+
+bool twWriteRaw (uint8_t data) {
+	TWDR = data;
+	if (TWCR & (1 << TWWC)) {
+		printf("write collision\n");
+		return false;
+	} else {
+		return true;
+	}
 }
 
 void twInit () {
 	/* set scl to 3.6 kHz (at 1Mhz CPU speed)*/
 	TWBR = 2;
 	TWSR |= 0x3; /* set prescaler to 64 */
+
+	twr.status = TWST_ERR;
+}
+
+/*	high-level write
+ */
+static bool twWrite (uint8_t address, uint8_t subaddress, uint8_t data) {
+	/* do not start if request is pending */
+	if (twr.status == TWST_WAIT) {
+		return false;
+	}
+
+	twr.address = address | TW_WRITE;
+	twr.subaddress = subaddress;
+	twr.data = data;
+	twr.step = 0;
+	twr.status = TWST_WAIT;
+	/* wait for stop finish */
+	while (TW_STATUS != 0xf8);
+	twStartRaw ();
+
+	return true;
 }
 
 void ledInit () {
@@ -99,6 +153,48 @@ void cpuInit () {
 	CLKPR = 0b00000011;
 }
 
+ISR(TWI_vect) {
+	printf ("interupt hit with step %i\n", twr.step);
+	switch (twr.step) {
+		case 0:
+			if (TW_STATUS == TW_START) {
+				twWriteRaw (twr.address);
+				twFlushRaw ();
+			} else {
+				twr.status = TWST_ERR;
+			}
+			break;
+
+		case 1:
+			if (TW_STATUS == TW_MT_SLA_ACK) {
+				twWriteRaw (twr.subaddress);
+				twFlushRaw ();
+			} else {
+				twr.status = TWST_ERR;
+			}
+			break;
+
+		case 2:
+			if (TW_STATUS == TW_MT_DATA_ACK) {
+				twWriteRaw (twr.data);
+				twFlushRaw ();
+			} else {
+				twr.status = TWST_ERR;
+			}
+			break;
+
+		case 3:
+			if (TW_STATUS == TW_MT_DATA_ACK) {
+				twStopRaw ();
+				twr.status = TWST_OK;
+			} else {
+				twr.status = TWST_ERR;
+			}
+			break;
+	}
+	++twr.step;
+}
+
 int main(void) {
 	cpuInit ();
 	ledInit ();
@@ -110,62 +206,19 @@ int main(void) {
 	
 	printf ("initialization done\n");
 
+	sei ();
 	/* disable power-down-mode */
-	twStart ();
-	twWait ();
-	unsigned char status = 0x0;
-	
-	/* check status code */
-	if ((status = TW_STATUS) == TW_START) {
-		/* write device address and write bit */
-		TWDR = LIS302DL | TW_WRITE;
-		if (TWCR & (1 << TWWC)) {
-			printf("write collision\n");
-		}
-		twFlush ();
-		twWait ();
-		if ((status = TW_STATUS) == TW_MT_SLA_ACK) {
-		} else {
-			printf ("fail with code %x\n", status);
-		}
-		
-		/* write subaddress (actually i2c data) */
-		TWDR = LIS302DL_CTRLREG1;
-		if (TWCR & (1 << TWWC)) {
-			printf("write collision\n");
-		}
-		twFlush ();
-		twWait ();
-		if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
-		} else {
-			printf ("fail with code %x\n", status);
-		}
-					
-		/* write actual data */
-		TWDR = 0b01000111;
-		if (TWCR & (1 << TWWC)) {
-			printf("write collision\n");
-		}
-		twFlush ();
-		twWait ();
-		if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
-		} else {
-			printf ("fail with code %x\n", status);
-		}
-		
-		twStop ();
-		_delay_ms (100);
-	} else {
-		printf ("write: start failed\n");
+	if (!twWrite (LIS302DL, LIS302DL_CTRLREG1, 0b01000111)) {
+		printf ("cannot start write\n");
 	}
+	while (twr.status == TWST_WAIT);
+	printf ("final twi status was %i\n", twr.status);
+	cli ();
 
 	while (1) {
-		unsigned char reg[] = {0x29, 0x2b, 0x2d};
 		signed char val[6];
-		//unsigned char reg[] = {0xf, 0x20, 0x21, 0x22, 0x23, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2d, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f};
-		for (unsigned char i = 0; i < sizeof (reg)/sizeof(*reg); i++) {
-			twStart ();
-			twWait ();
+			twStartRaw ();
+			twWaitRaw ();
 			unsigned char status = 0x0;
 		
 			/* check status code */
@@ -176,28 +229,28 @@ int main(void) {
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
-				twFlush ();
-				twWait ();
+				twFlushRaw ();
+				twWaitRaw ();
 				if ((status = TW_STATUS) == TW_MT_SLA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
 		
-				/* write subaddress (actually i2c data) */
-				TWDR = reg[i];
+				/* auto increment + subaddress */
+				TWDR = (1 << 7) | 0x28;
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
-				twFlush ();
-				twWait ();
+				twFlushRaw ();
+				twWaitRaw ();
 				if ((status = TW_STATUS) == TW_MT_DATA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
 		
 				/* repeated start */
-				twStart ();
-				twWait ();
+				twStartRaw ();
+				twWaitRaw ();
 				if ((status = TW_STATUS) == TW_REP_START) {
 				} else {
 					printf ("fail with code %x\n", status);
@@ -208,24 +261,35 @@ int main(void) {
 				if (TWCR & (1 << TWWC)) {
 					printf("write collision\n");
 				}
-				twFlush ();
-				twWait ();
+				twFlushRaw ();
+				twWaitRaw ();
 				if ((status = TW_STATUS) == TW_MR_SLA_ACK) {
 				} else {
 					printf ("fail with code %x\n", status);
 				}
 			
-				/* clear twint and wait for response */
-				twFlush ();
-				twWait ();
-				if ((status = TW_STATUS) == TW_MR_DATA_NACK) {
-				} else {
-					printf ("fail with code %x\n", status);
+				for (uint8_t i = 0; i < 6; i++) {
+					/* clear twint and wait for response */
+					if (i < 5) {
+						twFlushContRaw ();
+						twWaitRaw ();
+						if ((status = TW_STATUS) == TW_MR_DATA_ACK) {
+						} else {
+							printf ("fail with code %x in val %i\n", status, i);
+						}
+					} else {
+						twFlushRaw ();
+						twWaitRaw ();
+						if ((status = TW_STATUS) == TW_MR_DATA_NACK) {
+						} else {
+							printf ("fail with code %x in val %i\n", status, i);
+						}
+					}
+					unsigned char ret = TWDR;
+					val[i] = ret;
 				}
-				unsigned char ret = TWDR;
-				val[i] = ret;
 			
-				twStop ();
+				twStopRaw ();
 	
 				/* there is no way to tell whether stop has been sent or not, just wait */
 				_delay_ms (10);
@@ -233,9 +297,8 @@ int main(void) {
 				printf ("fail with code %x\n", status);
 				_delay_ms (1000);
 			}
-		}
 		//printf ("%i/%i/%i\n", (val[1] << 8) | val[0], (val[3] << 8) | val[2], (val[5] << 8) | val[4]);
-		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
+		printf ("%i/%i/%i\n", val[1], val[3], val[5]);
 	}
 
 	while (1);
