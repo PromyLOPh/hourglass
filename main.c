@@ -3,6 +3,7 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <avr/sleep.h>
 #include <util/delay.h>
 #include <util/twi.h>
 #include <stdio.h>
@@ -342,11 +343,24 @@ ISR(TWI_vect) {
 	}
 }
 
+volatile unsigned char count;
+
+ISR(TIMER0_OVF_vect) {
+	++count;
+	//printf ("timer interrupt hit, count now %u\n", count);
+}
+
+#define sleepwhile(cond) \
+	sleep_enable (); \
+	while (cond) { sleep_cpu (); } \
+	sleep_disable ();
+
 int main(void) {
 	cpuInit ();
 	ledInit ();
 	twInit ();
 	uartInit ();
+	set_sleep_mode (SLEEP_MODE_IDLE);
 	
 	/* redirect stdout */
 	stdout = &mystdout;
@@ -359,7 +373,7 @@ int main(void) {
 	if (!twWrite (LIS302DL, LIS302DL_CTRLREG1, 0b01000111)) {
 		printf ("cannot start write\n");
 	}
-	while (twr.status == TWST_WAIT);
+	sleepwhile (twr.status == TWST_WAIT);
 	printf ("final twi status was %i\n", twr.status);
 
 	while (1) {
@@ -367,10 +381,24 @@ int main(void) {
 		if (!twReadMulti (LIS302DL, 0x28, val, 6)) {
 			printf ("cannot start read\n");
 		}
-		while (twr.status == TWST_WAIT);
+		sleepwhile (twr.status == TWST_WAIT);
 		printf ("%i/%i/%i\n", (int8_t) val[1], (int8_t) val[3], (int8_t) val[5]);
+
+		count = 0;
+		/* set normal mode timer0 */
+		TCCR0A = 0;
+		/* io clock with 1024 prescaler */
+		TCCR0B = (TCCR0B & ~((1 << CS01)) | (1 << CS02) | (1 << CS00));
+		/* enable overflow interrupt */
+		TIMSK0 = (1 << TOIE0);
+
+		sleepwhile (count < 3);
+
+		/* stop timer (zero clock source) */
+		TCCR0B = 0;
+
 		/* XXX: why do we need the delay here? */
-		_delay_ms (250);
+		//_delay_ms (250);
 	}
 	/* global interrupt disable */
 	cli ();
