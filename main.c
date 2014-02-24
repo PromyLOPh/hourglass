@@ -10,6 +10,7 @@
 
 #include "i2c.h"
 #include "uart.h"
+#include "timer.h"
 
 static void ledInit () {
 	/* set led1,led2 to output */
@@ -29,13 +30,6 @@ static void cpuInit () {
 	CLKPR = CLKPCE << 1;
 	/* write new prescaler = 8 (i.e. 1Mhz clock frequency) */
 	CLKPR = 0b00000011;
-}
-
-volatile unsigned char count;
-
-ISR(TIMER0_OVF_vect) {
-	++count;
-	//printf ("timer interrupt hit, count now %u\n", count);
 }
 
 #define sleepwhile(cond) \
@@ -61,30 +55,24 @@ int main () {
 	sleepwhile (twr.status == TWST_WAIT);
 	printf ("final twi status was %i\n", twr.status);
 
+	timerStart ();
+	unsigned char seconds = 0;
 	while (1) {
 		uint8_t val[6];
+
+		sleepwhile (!timerHit ());
+		++seconds;
+		printf ("running for %u seconds\n", seconds);
+
 		if (!twReadMulti (LIS302DL, 0x28, val, 6)) {
 			printf ("cannot start read\n");
 		}
 		sleepwhile (twr.status == TWST_WAIT);
-		printf ("%i/%i/%i\n", (int8_t) val[1], (int8_t) val[3], (int8_t) val[5]);
-
-		count = 0;
-		/* set normal mode timer0 */
-		TCCR0A = 0;
-		/* io clock with 1024 prescaler */
-		TCCR0B = (TCCR0B & ~((1 << CS01)) | (1 << CS02) | (1 << CS00));
-		/* enable overflow interrupt */
-		TIMSK0 = (1 << TOIE0);
-
-		sleepwhile (count < 3);
-
-		/* stop timer (zero clock source) */
-		TCCR0B = 0;
-
-		/* XXX: why do we need the delay here? */
-		//_delay_ms (250);
+		printf ("%i/%i/%i\n", (int8_t) val[1], (int8_t) val[3],
+				(int8_t) val[5]);
 	}
+	timerStop ();
+
 	/* global interrupt disable */
 	cli ();
 
