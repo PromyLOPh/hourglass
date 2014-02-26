@@ -6,6 +6,8 @@
 volatile unsigned char count = 0;
 volatile unsigned char hit = 0;
 
+/* XXX: use high-res timer1 for doing this
+ */
 ISR(TIMER0_OVF_vect) {
 	/* there seems to be no mode of operation which disconnects pin OC0A _and_
 	 * clears the value */

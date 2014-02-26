@@ -11,6 +11,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "timer.h"
+#include "gyroscope.h"
 
 static void ledInit () {
 	/* set led1,led2 to output */
@@ -42,36 +43,29 @@ int main () {
 	ledInit ();
 	twInit ();
 	uartInit ();
+	gyroscopeInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
-	
+
 	printf ("initialization done\n");
 
 	/* global interrupt enable */
 	sei ();
-	/* disable power-down-mode */
-	if (!twWrite (LIS302DL, LIS302DL_CTRLREG1, 0b01000111)) {
-		printf ("cannot start write\n");
-	}
-	sleepwhile (twr.status == TWST_WAIT);
-	printf ("final twi status was %i\n", twr.status);
+	gyroscopeStart ();
 
-	timerStart ();
-	unsigned char seconds = 0;
+	//timerStart ();
 	while (1) {
-		uint8_t val[6];
+		//sleepwhile (!timerHit ());
+		//printf ("running for %u seconds\n", seconds);
 
-		sleepwhile (!timerHit ());
-		++seconds;
-		printf ("running for %u seconds\n", seconds);
-
-		if (!twReadMulti (LIS302DL, 0x28, val, 6)) {
-			printf ("cannot start read\n");
-		}
+		sleepwhile (!gyroscopeRead ());
 		sleepwhile (twr.status == TWST_WAIT);
-		printf ("%i/%i/%i\n", (int8_t) val[1], (int8_t) val[3],
-				(int8_t) val[5]);
+
+		volatile const int16_t *val = gyroscopeGet ();
+		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
+
+		_delay_ms (50);
 	}
-	timerStop ();
+	//timerStop ();
 
 	/* global interrupt disable */
 	cli ();
