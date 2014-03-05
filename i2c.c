@@ -67,7 +67,7 @@ bool twRequest (const twMode mode, const uint8_t address,
 	twr.i = 0;
 	twr.step = 0;
 	twr.status = TWST_WAIT;
-	/* wait for stop finish */
+	/* wait for stop finish; there is no interrupt generated for this */
 	while (TW_STATUS != 0xf8);
 	twStartRaw ();
 
@@ -182,6 +182,7 @@ static void twIntRead () {
 			} else {
 				twr.status = TWST_ERR;
 			}
+			break;
 
 		case 5:
 			if (TW_STATUS == TW_MR_DATA_ACK) {
