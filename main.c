@@ -59,13 +59,21 @@ int main () {
 
 		sleepwhile (!gyroscopeRead ());
 		sleepwhile (twr.status == TWST_WAIT);
+		switch (twr.status) {
+			case TWST_OK: {
+				volatile const int16_t *val = gyroscopeGet ();
+				printf ("%i/%i/%i\n", val[0], val[1], val[2]);
+				break;
+			}
 
-		volatile const int16_t *val = gyroscopeGet ();
-		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
-
-		_delay_ms (50);
+			case TWST_ERR:
+				goto fail;
+				break;
+		}
 	}
 	//timerStop ();
+fail:
+	printf ("fail\n");
 
 	/* global interrupt disable */
 	cli ();
