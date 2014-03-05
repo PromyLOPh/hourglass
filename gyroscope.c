@@ -41,23 +41,16 @@ void gyroscopeInit () {
 
 /* XXX: make nonblocking */
 void gyroscopeStart () {
-	/* XXX: implement multi-write */
-	/* disable power-down-mode */
-	if (!twWrite (L3GD20, L3GD20_CTRLREG1, 0b00001111)) {
-		printf ("cannot start write\n");
-	}
-	sleepwhile (twr.status == TWST_WAIT);
-	printf ("final twi status was %i\n", twr.status);
+	/* configuration:
+	 * disable power-down-mode
+	 * defaults
+	 * enable drdy interrupt
+	 * select 500dps
+	 */
+	uint8_t data[] = {0b00001111, 0b0, 0b00001000, 0b00010000};
 
-	/* enable drdy interrupt */
-	if (!twWrite (L3GD20, L3GD20_CTRLREG3, 0b00001000)) {
-		printf ("cannot start write\n");
-	}
-	sleepwhile (twr.status == TWST_WAIT);
-	printf ("final twi status was %i\n", twr.status);
-
-	/* select 500dps */
-	if (!twWrite (L3GD20, L3GD20_CTRLREG4, 0b00010000)) {
+	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+			sizeof (data)/sizeof (*data))) {
 		printf ("cannot start write\n");
 	}
 	sleepwhile (twr.status == TWST_WAIT);
@@ -68,7 +61,7 @@ bool gyroscopeRead () {
 	if (drdy) {
 		drdy = false;
 
-		if (!twReadMulti (L3GD20, 0x28, (uint8_t *) val, 6)) {
+		if (!twRequest (TWM_READ, L3GD20, 0x28, (uint8_t *) val, 6)) {
 			printf ("cannot start read\n");
 		}
 

@@ -4,7 +4,7 @@
 typedef enum {
 	TWM_INVALID = 0,
 	TWM_WRITE,
-	TWM_READ_MULTI,
+	TWM_READ,
 } twMode;
 
 typedef enum {
@@ -19,11 +19,10 @@ typedef struct {
 	twMode mode;
 	uint8_t address;
 	uint8_t subaddress;
-	uint8_t data;
 	uint8_t step;
-	/* read data store */
-	uint8_t *retData;
-	/* number of bytes to be read */
+	/* pointer to read/write data */
+	uint8_t *data;
+	/* number of bytes to be read/written */
 	uint8_t count;
 	/* current byte */
 	uint8_t i;
@@ -40,9 +39,7 @@ extern volatile twReq twr;
 #include <stdbool.h>
 
 void twInit ();
-bool twWrite (const uint8_t address, const uint8_t subaddress,
-		const uint8_t data);
-bool twReadMulti (const uint8_t address, const uint8_t subaddress,
-		uint8_t * const retData, const uint8_t count);
+bool twRequest (const twMode mode, const uint8_t address,
+		const uint8_t subaddress, uint8_t * const data, const uint8_t count);
 
 #endif /* TW_H */

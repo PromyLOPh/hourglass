@@ -52,39 +52,17 @@ void twInit () {
 
 /*	high-level write
  */
-bool twWrite (const uint8_t address, const uint8_t subaddress,
-		const uint8_t data) {
+bool twRequest (const twMode mode, const uint8_t address,
+		const uint8_t subaddress, uint8_t * const data, const uint8_t count) {
 	/* do not start if request is pending */
 	if (twr.status == TWST_WAIT) {
 		return false;
 	}
 
-	twr.mode = TWM_WRITE;
+	twr.mode = mode;
 	twr.address = address;
 	twr.subaddress = subaddress;
 	twr.data = data;
-	twr.step = 0;
-	twr.status = TWST_WAIT;
-	/* wait for stop finish */
-	while (TW_STATUS != 0xf8);
-	twStartRaw ();
-
-	return true;
-}
-
-/*	high-level read for multiple bytes/addresses
- */
-bool twReadMulti (const uint8_t address, const uint8_t subaddress,
-		uint8_t * const retData, const uint8_t count) {
-	/* do not start if request is pending */
-	if (twr.status == TWST_WAIT) {
-		return false;
-	}
-
-	twr.mode = TWM_READ_MULTI;
-	twr.address = address;
-	twr.subaddress = subaddress;
-	twr.retData = retData;
 	twr.count = count;
 	twr.i = 0;
 	twr.step = 0;
@@ -104,6 +82,7 @@ static void twIntWrite () {
 			if (TW_STATUS == TW_START) {
 				twWriteRaw (twr.address | TW_WRITE);
 				twFlushRaw ();
+				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
 			}
@@ -111,8 +90,10 @@ static void twIntWrite () {
 
 		case 1:
 			if (TW_STATUS == TW_MT_SLA_ACK) {
-				twWriteRaw (twr.subaddress);
+				/* write subaddress, enable auto-increment */
+				twWriteRaw ((1 << 7) | twr.subaddress);
 				twFlushRaw ();
+				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
 			}
@@ -120,8 +101,12 @@ static void twIntWrite () {
 
 		case 2:
 			if (TW_STATUS == TW_MT_DATA_ACK) {
-				twWriteRaw (twr.data);
+				twWriteRaw (twr.data[twr.i]);
+				++twr.i;
 				twFlushRaw ();
+				if (twr.i >= twr.count) {
+					++twr.step;
+				}
 			} else {
 				twr.status = TWST_ERR;
 			}
@@ -140,12 +125,11 @@ static void twIntWrite () {
 			printf ("nope\n");
 			break;
 	}
-	++twr.step;
 }
 
 /*	handle interrupt, read request
  */
-static void twIntReadMulti () {
+static void twIntRead () {
 	switch (twr.step) {
 		case 0:
 			if (TW_STATUS == TW_START) {
@@ -201,7 +185,7 @@ static void twIntReadMulti () {
 
 		case 5:
 			if (TW_STATUS == TW_MR_DATA_ACK) {
-				twr.retData[twr.i] = TWDR;
+				twr.data[twr.i] = TWDR;
 				++twr.i;
 				if (twr.i < twr.count-1) {
 					/* read another byte, not the last one */
@@ -220,7 +204,7 @@ static void twIntReadMulti () {
 		case 6:
 			if (TW_STATUS == TW_MR_DATA_NACK) {
 				/* receive final byte, send stop */
-				twr.retData[twr.i] = TWDR;
+				twr.data[twr.i] = TWDR;
 				twStopRaw ();
 				twr.status = TWST_OK;
 			} else {
@@ -229,7 +213,7 @@ static void twIntReadMulti () {
 			break;
 
 		default:
-			printf ("twIntReadMulti: nope\n");
+			printf ("twIntRead: nope\n");
 			break;
 	}
 }
@@ -240,8 +224,8 @@ ISR(TWI_vect) {
 			twIntWrite ();
 			break;
 
-		case TWM_READ_MULTI:
-			twIntReadMulti ();
+		case TWM_READ:
+			twIntRead ();
 			break;
 
 		default:
