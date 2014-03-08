@@ -11,7 +11,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "timer.h"
-#include "gyroscope.h"
+#include "gyro.h"
 
 static void ledInit () {
 	/* set led1,led2 to output */
@@ -43,25 +43,25 @@ int main () {
 	ledInit ();
 	twInit ();
 	uartInit ();
-	gyroscopeInit ();
+	gyroInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
 	printf ("initialization done\n");
 
 	/* global interrupt enable */
 	sei ();
-	gyroscopeStart ();
+	gyroStart ();
 
 	//timerStart ();
 	while (1) {
 		//sleepwhile (!timerHit ());
 		//printf ("running for %u seconds\n", seconds);
 
-		sleepwhile (!gyroscopeRead ());
+		sleepwhile (!gyroRead ());
 		sleepwhile (twr.status == TWST_WAIT);
 		switch (twr.status) {
 			case TWST_OK: {
-				volatile const int16_t *val = gyroscopeGet ();
+				volatile const int16_t *val = gyroGet ();
 				printf ("%i/%i/%i\n", val[0], val[1], val[2]);
 				break;
 			}

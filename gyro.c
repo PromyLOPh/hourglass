@@ -4,7 +4,7 @@
 #include <avr/sleep.h>
 
 #include "i2c.h"
-#include "gyroscope.h"
+#include "gyro.h"
 
 /* device address */
 #define L3GD20 0b11010100
@@ -29,7 +29,7 @@ ISR(PCINT0_vect) {
 	drdy = true;
 }
 
-void gyroscopeInit () {
+void gyroInit () {
 	/* set PB1 to input, with pull-up */
 	DDRB = (DDRB & ~((1 << PB1)));
 	PORTB = (PORTB | (1 << PB1));
@@ -40,7 +40,7 @@ void gyroscopeInit () {
 }
 
 /* XXX: make nonblocking */
-void gyroscopeStart () {
+void gyroStart () {
 	/* configuration:
 	 * disable power-down-mode
 	 * defaults
@@ -57,7 +57,7 @@ void gyroscopeStart () {
 	printf ("final twi status was %i\n", twr.status);
 }
 
-bool gyroscopeRead () {
+bool gyroRead () {
 	if (drdy) {
 		drdy = false;
 
@@ -71,7 +71,7 @@ bool gyroscopeRead () {
 	}
 }
 
-volatile const int16_t *gyroscopeGet () {
+volatile const int16_t *gyroGet () {
 	return val;
 }
 
