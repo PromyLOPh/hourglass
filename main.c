@@ -57,23 +57,12 @@ int main () {
 		//sleepwhile (!timerHit ());
 		//printf ("running for %u seconds\n", seconds);
 
-		sleepwhile (!gyroRead ());
-		sleepwhile (twr.status == TWST_WAIT);
-		switch (twr.status) {
-			case TWST_OK: {
-				volatile const int16_t *val = gyroGet ();
-				printf ("%i/%i/%i\n", val[0], val[1], val[2]);
-				break;
-			}
-
-			case TWST_ERR:
-				goto fail;
-				break;
-		}
+		sleepwhile (!gyroProcess());
+		volatile const int16_t *val = gyroGetAngle ();
+		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
+		gyroResetAngle ();
 	}
 	//timerStop ();
-fail:
-	printf ("fail\n");
 
 	/* global interrupt disable */
 	cli ();
