@@ -1,3 +1,5 @@
+#include "common.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <avr/io.h>
@@ -13,11 +15,6 @@
 #define LIS302DL_WHOAMI 0xf
 #define LIS302DL_CTRLREG1 0x20
 #define LIS302DL_UNUSED1 0x28
-
-#define sleepwhile(cond) \
-	sleep_enable (); \
-	while (cond) { sleep_cpu (); } \
-	sleep_disable ();
 
 /* the first interrupt is lost */
 static volatile bool drdy = true;

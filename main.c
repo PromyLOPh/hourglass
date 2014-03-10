@@ -1,5 +1,4 @@
-/* cpu runs at 1mhz */
-#define F_CPU 1000000
+#include "common.h"
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -32,11 +31,6 @@ static void cpuInit () {
 	/* write new prescaler = 8 (i.e. 1Mhz clock frequency) */
 	CLKPR = 0b00000011;
 }
-
-#define sleepwhile(cond) \
-	sleep_enable (); \
-	while (cond) { sleep_cpu (); } \
-	sleep_disable ();
 
 int main () {
 	cpuInit ();
