@@ -2,7 +2,7 @@ MCU = atmega88
 
 all: sanduhr.hex
 
-sanduhr.elf: main.c i2c.c i2c.h uart.c uart.h timer.c timer.h gyro.c gyro.h
+sanduhr.elf: main.c i2c.c i2c.h uart.c uart.h timer.c timer.h gyro.c gyro.h accel.c accel.h
 	avr-gcc -std=gnu99 -mmcu=$(MCU) -Os -o $@ $^
 
 sanduhr.hex: sanduhr.elf

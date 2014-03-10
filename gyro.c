@@ -33,12 +33,12 @@
 	sleep_disable ();
 
 /* the first interrupt is lost */
-volatile bool drdy = true;
-volatile int16_t val[3] = {0, 0, 0};
+static volatile bool drdy = true;
+static volatile int16_t val[3] = {0, 0, 0};
 /* current (relative) angle, in millidegree */
-int16_t angle[3] = {0, 0, 0};
+static int16_t angle[3] = {0, 0, 0};
 /* currently reading from i2c */
-bool reading = false;
+static bool reading = false;
 
 /* data ready interrupt
  */

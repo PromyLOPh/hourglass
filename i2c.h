@@ -31,11 +31,6 @@ typedef struct {
 
 extern volatile twReq twr;
 
-/* i2c device addresses */
-#define LIS302DL 0b00111000
-#define LIS302DL_WHOAMI 0xf
-#define LIS302DL_CTRLREG1 0x20
-
 #include <stdbool.h>
 
 void twInit ();
