@@ -11,6 +11,7 @@
 #include "uart.h"
 #include "timer.h"
 #include "gyro.h"
+#include "accel.h"
 
 static void ledInit () {
 	/* set led1,led2 to output */
@@ -38,6 +39,7 @@ int main () {
 	twInit ();
 	uartInit ();
 	gyroInit ();
+	accelInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
 	printf ("initialization done\n");
@@ -45,18 +47,32 @@ int main () {
 	/* global interrupt enable */
 	sei ();
 	gyroStart ();
+	accelStart ();
 
-	//timerStart ();
+	timerStart ();
+	bool checkGyro = false;
 	while (1) {
-		//sleepwhile (!timerHit ());
-		//printf ("running for %u seconds\n", seconds);
-
-		sleepwhile (!gyroProcess());
-		volatile const int16_t *val = gyroGetAngle ();
-		printf ("%i/%i/%i\n", val[0], val[1], val[2]);
+		while (!timerHit ()) {
+			/* round-robin to prevent starvation */
+			if (checkGyro) {
+				gyroProcess ();
+				accelProcess();
+			} else {
+				accelProcess();
+				gyroProcess ();
+			}
+			checkGyro = !checkGyro;
+			sleep_enable ();
+			sleep_cpu ();
+			sleep_disable ();
+		}
+		volatile const int16_t *gyroval = gyroGetAngle ();
+		volatile const int8_t *accelval = accelGet ();
+		printf ("%i/%i/%i - %i/%i/%i\n", gyroval[0], gyroval[1], gyroval[2],
+				accelval[1], accelval[3], accelval[5]);
 		gyroResetAngle ();
 	}
-	//timerStop ();
+	timerStop ();
 
 	/* global interrupt disable */
 	cli ();

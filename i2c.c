@@ -68,7 +68,7 @@ bool twRequest (const twMode mode, const uint8_t address,
 	twr.step = 0;
 	twr.status = TWST_WAIT;
 	/* wait for stop finish; there is no interrupt generated for this */
-	while (TW_STATUS != 0xf8);
+	while (TW_STATUS != 0xf8 || TWCR & (1 << TWSTO));
 	twStartRaw ();
 
 	return true;
@@ -130,62 +130,68 @@ static void twIntWrite () {
 /*	handle interrupt, read request
  */
 static void twIntRead () {
+	uint8_t status = TW_STATUS;
 	switch (twr.step) {
 		case 0:
-			if (TW_STATUS == TW_START) {
+			if (status == TW_START) {
 				/* write device address */
 				twWriteRaw (twr.address | TW_WRITE);
 				twFlushRaw ();
 				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 1:
-			if (TW_STATUS == TW_MT_SLA_ACK) {
+			if (status == TW_MT_SLA_ACK) {
 				/* write subaddress, enable auto-increment */
 				twWriteRaw ((1 << 7) | twr.subaddress);
 				twFlushRaw ();
 				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 2:
-			if (TW_STATUS == TW_MT_DATA_ACK) {
+			if (status == TW_MT_DATA_ACK) {
 				/* send repeated start */
 				twStartRaw ();
 				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 3:
-			if (TW_STATUS == TW_REP_START) {
+			if (status == TW_REP_START) {
 				/* now start the actual read request */
 				twWriteRaw (twr.address | TW_READ);
 				twFlushRaw ();
 				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 4:
-			if (TW_STATUS == TW_MR_SLA_ACK) {
+			if (status == TW_MR_SLA_ACK) {
 				/* send master ack if next data block is received */
 				twFlushContRaw ();
 				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 5:
-			if (TW_STATUS == TW_MR_DATA_ACK) {
+			if (status == TW_MR_DATA_ACK) {
 				twr.data[twr.i] = TWDR;
 				++twr.i;
 				if (twr.i < twr.count-1) {
@@ -199,17 +205,19 @@ static void twIntRead () {
 				}
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 
 		case 6:
-			if (TW_STATUS == TW_MR_DATA_NACK) {
+			if (status == TW_MR_DATA_NACK) {
 				/* receive final byte, send stop */
 				twr.data[twr.i] = TWDR;
 				twStopRaw ();
 				twr.status = TWST_OK;
 			} else {
 				twr.status = TWST_ERR;
+				twr.error = status;
 			}
 			break;
 

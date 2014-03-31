@@ -27,6 +27,8 @@ typedef struct {
 	/* current byte */
 	uint8_t i;
 	twStatus status;
+	/* i2c bus status at the time if an error occured */
+	uint8_t error;
 } twReq;
 
 extern volatile twReq twr;

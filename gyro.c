@@ -48,9 +48,9 @@ void gyroInit () {
 	DDRB = (DDRB & ~((1 << PB1)));
 	PORTB = (PORTB | (1 << PB1));
 	/* enable interrupt PCI0 */
-	PCICR = (1 << PCIE0);
+	PCICR = PCICR | (1 << PCIE0);
 	/* enable interrupts on PB1/PCINT1 */
-	PCMSK0 = (1 << 1);
+	PCMSK0 = (1 << PCINT1);
 }
 
 /* XXX: make nonblocking */
