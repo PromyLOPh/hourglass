@@ -3,6 +3,7 @@
 #include <avr/interrupt.h>
 
 #include "i2c.h"
+#include "common.h"
 
 volatile twReq twr;
 
@@ -42,9 +43,21 @@ static bool twWriteRaw (const uint8_t data) {
 }
 
 void twInit () {
-	/* set scl to 3.6 kHz (at 1Mhz CPU speed)*/
+#if F_CPU == 1000000
+	/* set scl to 3.6 kHz */
 	TWBR = 2;
 	TWSR |= 0x3; /* set prescaler to 64 */
+#elif F_CPU == 4000000
+	/* set scl to 50 kHz ? */
+	TWBR = 32;
+	TWSR |= 0x0; /* set prescaler to 0 */
+#elif F_CPU == 8000000
+	/* set scl to 100 kHz */
+	TWBR = 32;
+	TWSR |= 0x0; /* set prescaler to 0 */
+#else
+#error "cpu speed not supported"
+#endif
 
 	twr.mode = TWM_INVALID;
 	twr.status = TWST_ERR;

@@ -67,7 +67,7 @@ bool accelProcess () {
 			reading = false;
 		}
 	} else {
-		if (/*drdy &&*/ twr.status != TWST_WAIT) {
+		if (drdy && twr.status != TWST_WAIT) {
 			/* new data available in device buffer and bus is free, we are
 			 * reading the registers inbetween out_x/y/z and ignore them */
 			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_UNUSED1, (uint8_t *) val, 6)) {

@@ -28,9 +28,17 @@ static void ledShow (const unsigned char val) {
 
 static void cpuInit () {
 	/* enter change prescaler mode */
-	CLKPR = CLKPCE << 1;
-	/* write new prescaler = 8 (i.e. 1Mhz clock frequency) */
+	CLKPR = (1 << CLKPCE);
+	/* write new prescaler */
+#if F_CPU == 1000000
 	CLKPR = 0b00000011;
+#elif F_CPU == 4000000
+	CLKPR = 0b00000001;
+#elif F_CPU == 8000000
+	CLKPR = 0b00000000;
+#else
+#error "cpu speed not supported"
+#endif
 }
 
 int main () {

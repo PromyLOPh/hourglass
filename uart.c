@@ -2,6 +2,7 @@
 #include <avr/io.h>
 
 #include "uart.h"
+#include "common.h"
 
 /* blocking uart send
  */
@@ -23,13 +24,23 @@ static int uartPutc (char c, FILE *stream) {
 static FILE mystdout = FDEV_SETUP_STREAM (uartPutc, NULL, _FDEV_SETUP_WRITE);
 
 void uartInit () {
-	/* Set baud rate (9600, double speed, at 1mhz) */
 	UBRR0H = 0;
+#if F_CPU == 1000000
+	/* Set baud rate (9600, double speed) */
 	UBRR0L = 12;
+#elif F_CPU == 4000000
+	/* Set baud rate (9600, double speed) */
+	UBRR0L = 51;
+#elif F_CPU == 8000000
+	/* baudrate 38.4k */
+	UBRR0L = 25;
+#else
+#error "cpu speed not supported"
+#endif
 	/* enable double speed mode */
 	UCSR0A = (1 << U2X0);
 	/* Enable receiver and transmitter */
-	UCSR0B = (1<<RXEN0)|(1<<TXEN0);
+	UCSR0B = (1 << RXEN0) | (1 << TXEN0);
 	/* Set frame format: 8 data, 1 stop bit, even parity */
 	UCSR0C = (1<<UPM01) | (0 << UPM00) | (0<<USBS0)|(3<<UCSZ00);
 

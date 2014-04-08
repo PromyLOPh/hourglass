@@ -1,8 +1,8 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-/* cpu runs at 1mhz */
-#define F_CPU 1000000
+/* cpu runs at n mhz */
+#define F_CPU 8000000
 
 #define sleepwhile(cond) \
 	sleep_enable (); \
