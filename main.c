@@ -66,7 +66,7 @@ int main () {
 				gyroProcess ();
 				accelProcess();
 			} else {
-				accelProcess();
+				accelProcess ();
 				gyroProcess ();
 			}
 			checkGyro = !checkGyro;
@@ -81,6 +81,8 @@ int main () {
 		gyroResetAngle ();
 	}
 	timerStop ();
+
+	printf ("stopped\n");
 
 	/* global interrupt disable */
 	cli ();

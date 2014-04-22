@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <util/twi.h>
 #include <avr/interrupt.h>
+#include <stdlib.h>
+#include <assert.h>
 
 #include "i2c.h"
 #include "common.h"
@@ -67,10 +69,7 @@ void twInit () {
  */
 bool twRequest (const twMode mode, const uint8_t address,
 		const uint8_t subaddress, uint8_t * const data, const uint8_t count) {
-	/* do not start if request is pending */
-	if (twr.status == TWST_WAIT) {
-		return false;
-	}
+	assert (twr.status != TWST_WAIT);
 
 	twr.mode = mode;
 	twr.address = address;

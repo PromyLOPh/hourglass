@@ -29,8 +29,7 @@
 #define L3GD20_CTRLREG3 0x22
 #define L3GD20_CTRLREG4 0x23
 
-/* the first interrupt is lost */
-static volatile bool drdy = true;
+/* raw values */
 static volatile int16_t val[3] = {0, 0, 0};
 /* current (relative) angle, in millidegree */
 static int16_t angle[3] = {0, 0, 0};
@@ -40,13 +39,13 @@ static bool reading = false;
 /* data ready interrupt
  */
 ISR(PCINT0_vect) {
-	drdy = true;
+	/* empty */
 }
 
 void gyroInit () {
 	/* set PB1 to input, with pull-up */
-	DDRB = (DDRB & ~((1 << PB1)));
-	PORTB = (PORTB | (1 << PB1));
+	DDRB = DDRB & ~((1 << DDB1));
+	PORTB = PORTB | (1 << PORTB1);
 	/* enable interrupt PCI0 */
 	PCICR = PCICR | (1 << PCIE0);
 	/* enable interrupts on PB1/PCINT1 */
@@ -58,10 +57,10 @@ void gyroStart () {
 	/* configuration:
 	 * disable power-down-mode
 	 * defaults
-	 * enable drdy interrupt
+	 * low-active (does not work?), push-pull, drdy on int2
 	 * select 500dps
 	 */
-	uint8_t data[] = {0b00001111, 0b0, 0b00001000, 0b00010000};
+	uint8_t data[] = {0b00001111, 0b0, 0b00101000, 0b00010000};
 
 	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
@@ -87,12 +86,11 @@ bool gyroProcess () {
 			reading = false;
 		}
 	} else {
-		if (drdy && twr.status != TWST_WAIT) {
+		if (((PINB >> PINB1) & 0x1) && twr.status != TWST_WAIT) {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, L3GD20, 0x28, (uint8_t *) val, 6)) {
 				printf ("cannot start read\n");
 			} else {
-				drdy = false;
 				reading = true;
 			}
 		}
