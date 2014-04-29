@@ -7,9 +7,10 @@
 void gyroInit ();
 void gyroStart ();
 bool gyroProcess ();
-void gyroResetAngle ();
-const int16_t *gyroGetAngle ();
+void gyroResetAccum ();
+const int32_t *gyroGetAccum ();
 volatile const int16_t *gyroGetRaw ();
+const int8_t gyroGetZTicks ();
 
 #endif /* GYROSCOPE_H */
 

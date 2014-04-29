@@ -6,6 +6,7 @@
 #include <util/delay.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "i2c.h"
 #include "uart.h"
@@ -74,11 +75,16 @@ int main () {
 			sleep_cpu ();
 			sleep_disable ();
 		}
-		volatile const int16_t *gyroval = gyroGetAngle ();
+		printf ("ticks=%i\n", gyroGetZTicks ());
+#if 0
+		volatile const int32_t *gyroval = gyroGetAccum ();
+		volatile const int16_t *gyroraw = gyroGetRaw ();
 		volatile const int8_t *accelval = accelGet ();
-		printf ("%i/%i/%i - %i/%i/%i\n", gyroval[0], gyroval[1], gyroval[2],
+		printf ("%li/%li/%li - %i/%i/%i - %i/%i/%i\n",
+				gyroval[0], gyroval[1], gyroval[2],
+				gyroraw[0], gyroraw[1], gyroraw[2],
 				accelval[1], accelval[3], accelval[5]);
-		gyroResetAngle ();
+#endif
 	}
 	timerStop ();
 

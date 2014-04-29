@@ -1,6 +1,7 @@
 #include "common.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -8,18 +9,6 @@
 
 #include "i2c.h"
 #include "gyro.h"
-
-/* max degree +/- per second */
-#define GYRO_DPS 500
-/* output data rate, hertz */
-#define GYRO_FREQ 95
-/* millidegree per second and digit, (2*GYRO_DPS+1)/(2^16) ~= 15.274, manual
- * says 17.5, so choose something in between */
-#define GYRO_MDPS_PER_DIGIT 16
-/* milliangle (in degree) per 32 units, 32 is a relatively small number (not
- * much information lost) and the angle is very to a full integer number,
- * GYRO_MDPS_PER_DIGIT/GYRO_FREQ*32 */
-#define GYRO_MANGLE_PER_32 5
 
 /* device address */
 #define L3GD20 0b11010100
@@ -31,8 +20,10 @@
 
 /* raw values */
 static volatile int16_t val[3] = {0, 0, 0};
-/* current (relative) angle, in millidegree */
-static int16_t angle[3] = {0, 0, 0};
+/* accumulated values */
+static int32_t accum[3] = {0, 0, 0};
+/* calculated zticks */
+static int8_t zticks = 0;
 /* currently reading from i2c */
 static bool reading = false;
 
@@ -70,15 +61,37 @@ void gyroStart () {
 	printf ("final twi status was %i\n", twr.status);
 }
 
+/*	calculate ticks for z rotation
+ */
+static void gyroProcessTicks () {
+	const uint8_t shift = 14;
+	const int32_t zval = accum[2];
+
+	if (zval > (1 << shift)) {
+		const uint32_t a = abs (zval);
+		zticks += a >> shift;
+		/* mask shift bits */
+		accum[2] -= a & (~0x3ff);
+	} else if (zval < -(1 << shift)) {
+		const uint32_t a = abs (zval);
+		zticks -= a >> shift;
+		accum[2] += a & (~0x3ff);
+	}
+}
+
 /*	process gyro sensor data, returns true if new data is available
  */
 bool gyroProcess () {
 	if (reading) {
 		if (twr.status == TWST_OK) {
 			/* new data transfered, process it */
-			for (uint8_t i = 0; i < sizeof (angle)/sizeof (*angle); i++) {
-				angle[i] += (val[i] >> 5) * GYRO_MANGLE_PER_32;
+			for (uint8_t i = 0; i < sizeof (accum)/sizeof (*accum); i++) {
+				/* poor man's noise filter */
+				if (abs (val[i]) > 64) {
+					accum[i] += val[i];
+				}
 			}
+			gyroProcessTicks ();
 			reading = false;
 			return true;
 		} else if (twr.status == TWST_ERR) {
@@ -99,15 +112,19 @@ bool gyroProcess () {
 	return false;
 }
 
-const int16_t *gyroGetAngle () {
-	return angle;
+const int32_t *gyroGetAccum () {
+	return accum;
 }
 
-void gyroResetAngle () {
-	memset (angle, 0, sizeof (angle));
+void gyroResetAccum () {
+	memset (accum, 0, sizeof (accum));
 }
 
 volatile const int16_t *gyroGetRaw () {
 	return val;
+}
+
+const int8_t gyroGetZTicks () {
+	return zticks;
 }
 
