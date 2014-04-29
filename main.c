@@ -13,6 +13,7 @@
 #include "timer.h"
 #include "gyro.h"
 #include "accel.h"
+#include "speaker.h"
 
 static void ledInit () {
 	/* set led1,led2 to output */
@@ -49,6 +50,7 @@ int main () {
 	uartInit ();
 	gyroInit ();
 	accelInit ();
+	speakerInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
 	printf ("initialization done\n");
@@ -57,6 +59,10 @@ int main () {
 	sei ();
 	gyroStart ();
 	accelStart ();
+
+	speakerStart ();
+	_delay_ms (200);
+	speakerStop ();
 
 	timerStart ();
 	bool checkGyro = false;
