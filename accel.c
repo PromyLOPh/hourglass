@@ -17,8 +17,33 @@
 #define LIS302DL_CTRLREG1 0x20
 #define LIS302DL_UNUSED1 0x28
 
+/* value for 1g with +-2g max; measured */
+#define ACCEL_1G_POS (55)
+#define ACCEL_1G_NEG (-55)
+/* offset for horizon detection */
+#define ACCEL_1G_OFF (5)
+/* shake detection values; 2g for +-2g max */
+#define ACCEL_SHAKE_POS (INT8_MAX)
+#define ACCEL_SHAKE_NEG (INT8_MIN)
+/* 250ms for 100Hz data rate */
+#define ACCEL_SHAKE_TIMEOUT (25)
+
 /* 0, 2 and 4 are zero, as they contain the dummy register’s content */
 static volatile int8_t val[6] = {0, 0, 0, 0, 0, 0};
+/* number of times shaken (i.e. peak level measured) */
+static uint8_t shakeCount = 0;
+/* if max in one direction direction has been detected give it some time to
+ * wait for max in the other direction */
+static uint8_t shakeTimeout = 0;
+/* sign of last shake peak */
+static enum {SHAKE_NONE, SHAKE_POS, SHAKE_NEG} shakeSign = SHAKE_NONE;
+/* horizon position */
+/* current */
+static horizon horizonSign = HORIZON_NONE;
+/* how long has sign been stable? */
+static uint8_t horizonStable = 0;
+/* previous measurement */
+static horizon horizonPrevSign = HORIZON_NONE;
 /* currently reading from i2c */
 static bool reading = false;
 
@@ -55,9 +80,85 @@ void accelStart () {
 	printf ("final twi status was %i\n", twr.status);
 }
 
+/*	register shake gesture
+ *
+ *	“shake” means a peak in one direction followed by another one in the other
+ *	direction. called for every data set pulled.
+ */
+static void accelProcessShake () {
+	const int8_t zval = val[5];
+	/* detect shake if:
+	 * a) horizon is positive and accel z value is >= ACCEL_SHAKE_POS
+	 * b) horizon is negative and accel z value is >= ACCEL_SHAKE_POS offset by
+	 *    the value for 1g (negative)
+	 * (same for negative horizon)
+	 */
+	if (((zval >= ACCEL_SHAKE_POS &&
+			horizonSign == HORIZON_POS) ||
+			(zval >= (ACCEL_SHAKE_POS + ACCEL_1G_NEG) &&
+			horizonSign == HORIZON_NEG)) &&
+			shakeSign != SHAKE_POS) {
+		/* if we did not time out (i.e. max in other direction has been
+		 * detected) register shake */
+		if (shakeTimeout > 0) {
+			++shakeCount;
+			/* correctly detect double/triple/… shakes; setting this to
+			 * ACCEL_SHAKE_TIMEOUT yields wrong results */
+			shakeTimeout = 0;
+		} else {
+			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
+		}
+		shakeSign = SHAKE_POS;
+	} else if (((zval <= ACCEL_SHAKE_NEG &&
+			horizonSign == HORIZON_NEG) ||
+			(zval <= (ACCEL_SHAKE_NEG + ACCEL_1G_POS) &&
+			horizonSign == HORIZON_POS)) &&
+			shakeSign != SHAKE_NEG) {
+		if (shakeTimeout > 0) {
+			++shakeCount;
+			shakeTimeout = 0;
+		} else {
+			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
+		}
+		shakeSign = SHAKE_NEG;
+	} else {
+		if (shakeTimeout > 0) {
+			--shakeTimeout;
+		}
+	}
+}
+
+/*	register horizon change
+ *
+ *	i.e. have we been turned upside down?
+ */
+static void accelProcessHorizon () {
+	const int8_t zval = val[5];
+	/* measuring approximately 1g */
+	if (zval > (ACCEL_1G_POS - ACCEL_1G_OFF) &&
+			zval < (ACCEL_1G_POS + ACCEL_1G_OFF) &&
+			horizonPrevSign == HORIZON_POS && horizonSign != HORIZON_POS) {
+		++horizonStable;
+	} else if (zval < (ACCEL_1G_NEG + ACCEL_1G_OFF)
+			&& zval > (ACCEL_1G_NEG - ACCEL_1G_OFF) &&
+			horizonPrevSign == HORIZON_NEG && horizonSign != HORIZON_NEG) {
+		++horizonStable;
+	} else {
+		horizonStable = 0;
+	}
+	/* make sure its not just shaking */
+	if (horizonStable > 5) {
+		horizonSign = horizonPrevSign;
+		horizonStable = 0;
+	}
+	horizonPrevSign = zval >= 0 ? HORIZON_POS : HORIZON_NEG;
+}
+
 bool accelProcess () {
 	if (reading) {
 		if (twr.status == TWST_OK) {
+			accelProcessHorizon ();
+			accelProcessShake ();
 			/* new data transfered */
 			reading = false;
 			return true;
@@ -83,5 +184,13 @@ bool accelProcess () {
 
 volatile const int8_t *accelGet () {
 	return val;
+}
+
+const uint8_t accelGetShakeCount () {
+	return shakeCount;
+}
+
+const horizon accelGetHorizon () {
+	return horizonSign;
 }
 

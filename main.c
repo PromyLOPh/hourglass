@@ -60,9 +60,11 @@ int main () {
 	gyroStart ();
 	accelStart ();
 
+#if 0
 	speakerStart ();
 	_delay_ms (200);
 	speakerStop ();
+#endif
 
 	timerStart ();
 	bool checkGyro = false;
@@ -81,7 +83,9 @@ int main () {
 			sleep_cpu ();
 			sleep_disable ();
 		}
-		printf ("ticks=%i\n", gyroGetZTicks ());
+
+		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), accelGetHorizon (),
+				accelGetShakeCount ());
 #if 0
 		volatile const int32_t *gyroval = gyroGetAccum ();
 		volatile const int16_t *gyroraw = gyroGetRaw ();
