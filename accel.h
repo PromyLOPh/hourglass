@@ -9,7 +9,7 @@ typedef enum {HORIZON_NONE, HORIZON_POS, HORIZON_NEG} horizon;
 void accelInit ();
 void accelStart ();
 bool accelProcess ();
-volatile const int8_t *accelGet ();
+const int8_t accelGetZ ();
 const uint8_t accelGetShakeCount ();
 const horizon accelGetHorizon ();
 

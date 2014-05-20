@@ -16,6 +16,7 @@
 #define LIS302DL_WHOAMI 0xf
 #define LIS302DL_CTRLREG1 0x20
 #define LIS302DL_UNUSED1 0x28
+#define LIS302DL_OUTZ 0x2D
 
 /* value for 1g with +-2g max; measured */
 #define ACCEL_1G_POS (55)
@@ -28,8 +29,8 @@
 /* 250ms for 100Hz data rate */
 #define ACCEL_SHAKE_TIMEOUT (25)
 
-/* 0, 2 and 4 are zero, as they contain the dummy register’s content */
-static volatile int8_t val[6] = {0, 0, 0, 0, 0, 0};
+/* z value */
+static volatile int8_t zval = 0;
 /* number of times shaken (i.e. peak level measured) */
 static uint8_t shakeCount = 0;
 /* if max in one direction direction has been detected give it some time to
@@ -66,11 +67,11 @@ void accelInit () {
 /* XXX: make nonblocking */
 void accelStart () {
 	/* configuration:
-	 * disable power-down-mode
+	 * disable power-down-mode, enable z-axis
 	 * defaults
 	 * low active, data ready interrupt on int2
 	 */
-	uint8_t data[] = {0b01000111, 0b0, 0b10100000};
+	uint8_t data[] = {0b01000100, 0b0, 0b10100000};
 
 	if (!twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
@@ -86,7 +87,6 @@ void accelStart () {
  *	direction. called for every data set pulled.
  */
 static void accelProcessShake () {
-	const int8_t zval = val[5];
 	/* detect shake if:
 	 * a) horizon is positive and accel z value is >= ACCEL_SHAKE_POS
 	 * b) horizon is negative and accel z value is >= ACCEL_SHAKE_POS offset by
@@ -133,7 +133,6 @@ static void accelProcessShake () {
  *	i.e. have we been turned upside down?
  */
 static void accelProcessHorizon () {
-	const int8_t zval = val[5];
 	/* measuring approximately 1g */
 	if (zval > (ACCEL_1G_POS - ACCEL_1G_OFF) &&
 			zval < (ACCEL_1G_POS + ACCEL_1G_OFF) &&
@@ -168,10 +167,9 @@ bool accelProcess () {
 		}
 	} else {
 		if (!((PINC >> PINC1) & 0x1) && twr.status != TWST_WAIT) {
-			/* new data available in device buffer and bus is free, we are
-			 * reading the registers inbetween out_x/y/z and ignore them */
-			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_UNUSED1,
-					(uint8_t *) val, 6)) {
+			/* new data available in device buffer and bus is free */
+			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
+					(uint8_t *) &zval, sizeof (zval))) {
 				printf ("cannot start read\n");
 			} else {
 				reading = true;
@@ -182,8 +180,8 @@ bool accelProcess () {
 	return false;
 }
 
-volatile const int8_t *accelGet () {
-	return val;
+const int8_t accelGetZ () {
+	return zval;
 }
 
 const uint8_t accelGetShakeCount () {
