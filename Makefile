@@ -1,5 +1,5 @@
 MCU = atmega88
-CFLAGS=-Os
+CFLAGS=-Os -Wall -Wextra
 
 all: sanduhr.hex
 

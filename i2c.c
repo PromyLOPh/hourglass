@@ -30,9 +30,12 @@ static void twFlushContRaw () {
 	TWCR = (TWCR & ~((1 << TWSTA) | (1 << TWSTO))) | (1 << TWIE) | (1 << TWINT) | (1 << TWEN) | (1 << TWEA);
 }
 
+#if 0
+/* unused */
 static void twWaitRaw () {
 	while (!(TWCR & (1 << TWINT)));
 }
+#endif
 
 static bool twWriteRaw (const uint8_t data) {
 	TWDR = data;

@@ -8,9 +8,9 @@ void gyroInit ();
 void gyroStart ();
 bool gyroProcess ();
 void gyroResetAccum ();
-const int32_t gyroGetZAccum ();
-volatile const int16_t gyroGetZRaw ();
-const int8_t gyroGetZTicks ();
+int32_t gyroGetZAccum ();
+int16_t gyroGetZRaw ();
+int8_t gyroGetZTicks ();
 
 #endif /* GYROSCOPE_H */
 

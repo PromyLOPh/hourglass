@@ -111,7 +111,7 @@ bool gyroProcess () {
 	return false;
 }
 
-const int32_t gyroGetZAccum () {
+int32_t gyroGetZAccum () {
 	return zaccum;
 }
 
@@ -119,11 +119,11 @@ void gyroResetZAccum () {
 	zaccum = 0;
 }
 
-volatile const int16_t gyroGetZRaw () {
+int16_t gyroGetZRaw () {
 	return zval;
 }
 
-const int8_t gyroGetZTicks () {
+int8_t gyroGetZTicks () {
 	return zticks;
 }
 

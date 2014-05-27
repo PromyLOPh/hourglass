@@ -9,9 +9,9 @@ typedef enum {HORIZON_NONE, HORIZON_POS, HORIZON_NEG} horizon;
 void accelInit ();
 void accelStart ();
 bool accelProcess ();
-const int8_t accelGetZ ();
-const uint8_t accelGetShakeCount ();
-const horizon accelGetHorizon ();
+int8_t accelGetZ ();
+uint8_t accelGetShakeCount ();
+horizon accelGetHorizon ();
 
 #endif /* ACCEL_H */
 

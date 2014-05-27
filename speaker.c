@@ -37,7 +37,7 @@ void speakerStart () {
 	/* enable overflow interrupt */
 	TIMSK2 = (1 << TOIE2);
 	/* io clock with 1024 prescaler */
-	TCCR2B = (TCCR2B & ~((1 << CS21)) | (1 << CS22) | (1 << CS20));
+	TCCR2B = ((TCCR2B & ~(1 << CS21)) | (1 << CS22) | (1 << CS20));
 }
 
 void speakerStop () {

@@ -180,15 +180,15 @@ bool accelProcess () {
 	return false;
 }
 
-const int8_t accelGetZ () {
+int8_t accelGetZ () {
 	return zval;
 }
 
-const uint8_t accelGetShakeCount () {
+uint8_t accelGetShakeCount () {
 	return shakeCount;
 }
 
-const horizon accelGetHorizon () {
+horizon accelGetHorizon () {
 	return horizonSign;
 }
 

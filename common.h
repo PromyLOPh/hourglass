@@ -9,5 +9,7 @@
 	while (cond) { sleep_cpu (); } \
 	sleep_disable ();
 
+#define __unused__ __attribute__ ((unused))
+
 #endif /* COMMON_H */
 
