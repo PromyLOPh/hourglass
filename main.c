@@ -14,19 +14,7 @@
 #include "gyro.h"
 #include "accel.h"
 #include "speaker.h"
-
-static void ledInit () {
-	/* set led1,led2 to output */
-	DDRB |= (1 << PB6) | (1 << PB7);
-	/* set led3,led4,led5,led6 to output */
-	DDRD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5);
-}
-
-/* show data with leds */
-static void ledShow (const unsigned char val) {
-	PORTB = (PORTB & ~((1 << PB6) | (1 << PB7))) | ((val & 0x3) << PB6);
-	PORTD = (PORTD & ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5))) | (((val >> 2) & 0xf) << PD2);
-}
+#include "pwm.h"
 
 static void cpuInit () {
 	/* enter change prescaler mode */
@@ -45,12 +33,12 @@ static void cpuInit () {
 
 int main () {
 	cpuInit ();
-	ledInit ();
 	twInit ();
 	uartInit ();
 	gyroInit ();
 	accelInit ();
 	speakerInit ();
+	pwmInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
 	printf ("initialization done\n");
@@ -59,6 +47,7 @@ int main () {
 	sei ();
 	gyroStart ();
 	accelStart ();
+	pwmStart ();
 
 #if 0
 	speakerStart ();
@@ -70,6 +59,10 @@ int main () {
 	bool checkGyro = false;
 	while (1) {
 		while (!timerHit ()) {
+			for (uint8_t i = 0; i < 6; i++) {
+				pwmSetBrightness (i, abs (gyroGetZTicks ()));
+			}
+
 			/* round-robin to prevent starvation */
 			if (checkGyro) {
 				gyroProcess ();
@@ -97,6 +90,7 @@ int main () {
 #endif
 	}
 	timerStop ();
+	pwmStop ();
 
 	printf ("stopped\n");
 
