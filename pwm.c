@@ -1,51 +1,73 @@
 /*	LED pwm, uses timer0
- *	XXX: this works, but we should use non-linear steps
  */
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdbool.h>
+#include <assert.h>
+#include <stdlib.h>
 
 #include "speaker.h"
+#include "pwm.h"
 
-#define PWM_STEPS 16
+#define PWM_LED_COUNT 6
 
-/* inverse brightness; 0 is max brightness, PWM_STEPS off */
-static uint8_t invbrightness[6];
-static uint8_t count = 0;
+/* max count for blinks */
+static uint8_t blink[6];
+static uint8_t comphit = 0;
+static uint8_t state = 0;
+/* PORTB and PORTB values */
+static uint8_t val[2];
+static uint8_t init[2];
 
+static uint8_t ledToArray (const uint8_t i) {
+	assert (i < PWM_LED_COUNT);
+	if (i >= 2) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static uint8_t ledToShift (const uint8_t i) {
+	assert (i < PWM_LED_COUNT);
+	static const uint8_t shifts[] = {PB6, PB7, PD2, PD3, PD4, PD5};
+	return shifts[i];
+}
+
+/*	All LEDs are off for state % 2 == 0 (off state) or state >= 7 (end of blink
+ *	sequence), setting blink[i] = state*2 causes LED i to blink state times
+ */
 ISR(TIMER0_COMPA_vect) {
-	if (count == 0) {
-		/* switch off all LEDs */
+	++comphit;
+	/* divide by 13 to get ~10 Hz timer */
+	if (comphit >= 13) {
+		comphit = 0;
+		++state;
+		if (state == 10) {
+			state = 0;
+		}
+		val[0] = init[0];
+		val[1] = init[1];
+		if (state == 8 || state % 2 == 0) {
+			/* end of blink/off state */
+		} else {
+			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+				if (state < blink[i]) {
+					val[ledToArray (i)] |= (1 << ledToShift(i));
+				}
+			}
+		}
+	}
+
+	if (comphit % 2 == 0) {
+		/* switch off: we can’t just set to 0 here, since PB6 is used by
+		 * speaker */
 		PORTB = PORTB & ~((1 << PB6) | (1 << PB7));
 		PORTD = PORTD & ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5));
 	} else {
-		uint8_t pb = 0, pd = 0;
-		if (count > invbrightness[0]) {
-			pb |= (1 << PB6);
-		}
-		if (count > invbrightness[1]) {
-			pb |= (1 << PB7);
-		}
-		if (count > invbrightness[2]) {
-			pd |= (1 << PD2);
-		}
-		if (count > invbrightness[3]) {
-			pd |= (1 << PD3);
-		}
-		if (count > invbrightness[4]) {
-			pd |= (1 << PD4);
-		}
-		if (count > invbrightness[5]) {
-			pd |= (1 << PD5);
-		}
-		/* actually set them */
-		PORTB |= pb;
-		PORTD |= pd;
-	}
-	++count;
-	if (count >= PWM_STEPS) {
-		count = 0;
+		PORTB |= val[0];
+		PORTD |= val[1];
 	}
 }
 
@@ -60,14 +82,13 @@ void pwmStart () {
 	/* reset timer value */
 	TCNT0 = 0;
 	/* set ctc timer0 (part 1) */
-	TCCR0A = 0;
+	TCCR0A = (1 << WGM01);
 	/* enable compare match interrupt */
 	TIMSK0 = (1 << OCIE0A);
-	/* compare value; interrupt on every tick */
-	OCR0A = 0;
-	/* io clock with 8 prescaler (>8 is too slow and starts flickering); ctc
-	 * (part 2) */
-	TCCR0B = (1 << CS01) | (1 << WGM02);
+	/* compare value */
+	OCR0A = 255;
+	/* io clock with prescaler 256; ctc (part 2) */
+	TCCR0B = (1 << CS02) | (0 << CS01) | (0 << CS00);
 }
 
 void pwmStop () {
@@ -75,7 +96,14 @@ void pwmStop () {
 	TCCR0B = 0;
 }
 
-void pwmSetBrightness (const uint8_t i, const uint8_t b) {
-	invbrightness[i] = b;
+void pwmSetBlink (const uint8_t i, const uint8_t value) {
+	assert (i < PWM_LED_COUNT);
+	if (value == PWM_BLINK_ON) {
+		/* permanently switch on LED */
+		init[ledToArray (i)] |= (1 << ledToShift (i));
+	} else {
+		init[ledToArray (i)] &= ~(1 << ledToShift (i));
+		blink[i] = value*2;
+	}
 }
 
