@@ -48,34 +48,44 @@ static void processSensors () {
 	checkGyro = !checkGyro;
 }
 
+/*	Translate LED ids based on horizon, id 0 is always at the bottom of the
+ *	device */
+static uint8_t horizonLed (uint8_t i) {
+	if (h == HORIZON_NEG) {
+		return i;
+	} else {
+		return 5-i;
+	}
+}
+
 /*
  *	We use the following LED coding (top to bottom):
  *	1-5 minutes:  (off) (5m ) (4m ) (3m ) (2m ) (1m )
  *	5-60 minutes: (on ) (50m) (40m) (30m) (20m) (10m)
  */
 static void updateLeds () {
-	/* XXX: orientation */
 	if (seconds <= 5*60) {
 		const uint8_t minutes = seconds / 60;
 		for (uint8_t i = 0; i < minutes; i++) {
-			pwmSetBlink (i, PWM_BLINK_ON);
+			pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
 		}
 		/* 10 second steps */
-		pwmSetBlink (minutes, (seconds - minutes*60)/10);
+		pwmSetBlink (horizonLed (minutes), (seconds - minutes*60)/10);
 		for (uint8_t i = minutes+1; i < 6; i++) {
-			pwmSetBlink (i, PWM_BLINK_OFF);
+			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
 		}
 	} else {
 		const uint8_t tenminutes = seconds/60/10;
 		for (uint8_t i = 0; i < tenminutes; i++) {
-			pwmSetBlink (i, PWM_BLINK_ON);
+			pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
 		}
 		/* 2 minute steps */
-		pwmSetBlink (tenminutes, (seconds - tenminutes*10*60)/60/2);
+		pwmSetBlink (horizonLed (tenminutes),
+				(seconds - tenminutes*10*60)/60/2);
 		for (uint8_t i = tenminutes+1; i < 5; i++) {
-			pwmSetBlink (i, PWM_BLINK_OFF);
+			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
 		}
-		pwmSetBlink (5, PWM_BLINK_ON);
+		pwmSetBlink (horizonLed (5), PWM_BLINK_ON);
 	}
 }
 
@@ -192,6 +202,7 @@ void uiLoop () {
 		} else {
 			horizonChanged = false;
 		}
+		h = newh;
 
 		switch (mode) {
 			case UIMODE_INIT:
