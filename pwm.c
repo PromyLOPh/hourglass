@@ -10,8 +10,6 @@
 #include "speaker.h"
 #include "pwm.h"
 
-#define PWM_LED_COUNT 6
-
 /* max count for blinks */
 static uint8_t blink[6];
 static uint8_t comphit = 0;

@@ -13,6 +13,17 @@
 #include "timer.h"
 #include "pwm.h"
 
+#define sign(x) ((x < 0) ? -1 : 1)
+/* 10 seconds */
+#define SELECT_M1_INC 10
+/* 1 minute steps for mode 2 */
+#define SELECT_M2_INC 60
+/* start of mode 2, seconds */
+#define SELECT_M2_START (5*60)
+#define SELECT_MAX (60*60)
+/* stop alarm after #seconds */
+#define ALARM_TIME 30
+
 typedef enum {
 	/* initialize */
 	UIMODE_INIT,
@@ -34,6 +45,8 @@ static int16_t seconds = 0;
 static horizon h = HORIZON_NONE;
 static bool horizonChanged = false;
 
+/*	Read sensor values
+ */
 static void processSensors () {
 	static bool checkGyro = false;
 
@@ -54,7 +67,7 @@ static uint8_t horizonLed (uint8_t i) {
 	if (h == HORIZON_NEG) {
 		return i;
 	} else {
-		return 5-i;
+		return (PWM_LED_COUNT-1)-i;
 	}
 }
 
@@ -64,14 +77,14 @@ static uint8_t horizonLed (uint8_t i) {
  *	5-60 minutes: (on ) (50m) (40m) (30m) (20m) (10m)
  */
 static void updateLeds () {
-	if (seconds <= 5*60) {
+	if (seconds <= SELECT_M2_START) {
 		const uint8_t minutes = seconds / 60;
 		for (uint8_t i = 0; i < minutes; i++) {
 			pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
 		}
 		/* 10 second steps */
 		pwmSetBlink (horizonLed (minutes), (seconds - minutes*60)/10);
-		for (uint8_t i = minutes+1; i < 6; i++) {
+		for (uint8_t i = minutes+1; i < PWM_LED_COUNT; i++) {
 			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
 		}
 	} else {
@@ -82,17 +95,14 @@ static void updateLeds () {
 		/* 2 minute steps */
 		pwmSetBlink (horizonLed (tenminutes),
 				(seconds - tenminutes*10*60)/60/2);
-		for (uint8_t i = tenminutes+1; i < 5; i++) {
+		for (uint8_t i = tenminutes+1; i < PWM_LED_COUNT-1; i++) {
 			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
 		}
-		pwmSetBlink (horizonLed (5), PWM_BLINK_ON);
+		pwmSetBlink (horizonLed (PWM_LED_COUNT-1), PWM_BLINK_ON);
 	}
 }
 
-#define sign(x) ((x < 0) ? -1 : 1)
-
 /*	Timer value selection
- *
  */
 static void doSelect () {
 	if (accelGetShakeCount () >= 2) {
@@ -110,23 +120,22 @@ static void doSelect () {
 	const int16_t zticks = gyroGetZTicks ();
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
-		if (seconds > 5*60) {
-			/* 1 minute steps */
-			const int16_t newseconds = seconds + sign (zticks) * 60;
+		if (seconds > SELECT_M2_START) {
+			const int16_t newseconds = seconds + sign (zticks) * SELECT_M2_INC;
 			/* when decrementing one minute steps might be too much */
-			if (newseconds < 5*60) {
-				seconds = 5*60;
+			if (newseconds < SELECT_M2_START) {
+				seconds = SELECT_M2_START;
 			} else {
 				seconds = newseconds;
 			}
 		} else {
 			/* 10 second steps */
-			seconds += sign (zticks) * 10;
+			seconds += sign (zticks) * SELECT_M1_INC;
 		}
 		if (seconds < 0) {
 			seconds = 0;
-		} else if (seconds > 60*60) {
-			seconds = 60*60;
+		} else if (seconds > SELECT_MAX) {
+			seconds = SELECT_MAX;
 		}
 		printf ("%i\n", seconds);
 	}
@@ -134,6 +143,8 @@ static void doSelect () {
 	updateLeds ();
 }
 
+/*	Idle function, waits for timer start or select commands
+ */
 static void doIdle () {
 	if (horizonChanged && seconds > 0) {
 		/* start timer */
@@ -155,17 +166,21 @@ static void doIdle () {
 	}
 }
 
+/*	Run timer, alarm when count==0 or abort when horizon changed
+ */
 static void doRun () {
 	if (timerHit ()) {
 		--seconds;
 		printf ("run: %i\n", seconds);
 		updateLeds ();
 		if (seconds == 0) {
-			speakerStart ();
-			_delay_ms (50);
-			speakerStop ();
-			mode = UIMODE_IDLE;
-			printf ("run->idle\n");
+			/* blink all leds */
+			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+				pwmSetBlink (i, 1);
+			}
+			seconds = ALARM_TIME;
+			mode = UIMODE_ALARM;
+			printf ("run->alarm\n");
 		}
 	} else if (horizonChanged) {
 		/* stop timer */
@@ -174,6 +189,25 @@ static void doRun () {
 	}
 }
 
+/*	Run alarm for some time or user interaction, then stop
+ */
+static void doAlarm () {
+	if (timerHit ()) {
+		--seconds;
+	}
+	if (horizonChanged || seconds == 0) {
+		timerStop ();
+		seconds = 0;
+		/* stop blinking */
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			pwmSetBlink (i, PWM_BLINK_OFF);
+		}
+		mode = UIMODE_IDLE;
+	}
+}
+
+/*	Wait for sensor initialization
+ */
 static void doInit () {
 	/* get initial orientation */
 	h = accelGetHorizon ();
@@ -184,6 +218,8 @@ static void doInit () {
 	}
 }
 
+/*	Sleep CPU
+ */
 static void cpuSleep () {
 	sleep_enable ();
 	sleep_cpu ();
@@ -219,6 +255,10 @@ void uiLoop () {
 
 			case UIMODE_RUN:
 				doRun ();
+				break;
+
+			case UIMODE_ALARM:
+				doAlarm ();
 				break;
 
 			default:
