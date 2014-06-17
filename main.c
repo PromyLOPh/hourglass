@@ -3,7 +3,6 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
-#include <util/delay.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -15,6 +14,7 @@
 #include "accel.h"
 #include "speaker.h"
 #include "pwm.h"
+#include "ui.h"
 
 static void cpuInit () {
 	/* enter change prescaler mode */
@@ -49,46 +49,8 @@ int main () {
 	accelStart ();
 	pwmStart ();
 
-#if 0
-	speakerStart ();
-	_delay_ms (200);
-	speakerStop ();
-#endif
+	uiLoop ();
 
-	timerStart ();
-	bool checkGyro = false;
-	while (1) {
-		while (!timerHit ()) {
-			for (uint8_t i = 0; i < 6; i++) {
-				pwmSetBrightness (i, abs (gyroGetZTicks ()));
-			}
-
-			/* round-robin to prevent starvation */
-			if (checkGyro) {
-				gyroProcess ();
-				accelProcess();
-			} else {
-				accelProcess ();
-				gyroProcess ();
-			}
-			checkGyro = !checkGyro;
-			sleep_enable ();
-			sleep_cpu ();
-			sleep_disable ();
-		}
-
-		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), accelGetHorizon (),
-				accelGetShakeCount ());
-#if 0
-		volatile const int32_t *gyroval = gyroGetAccum ();
-		volatile const int16_t *gyroraw = gyroGetRaw ();
-		volatile const int8_t *accelval = accelGet ();
-		printf ("%li/%li/%li - %i/%i/%i - %i/%i/%i\n",
-				gyroval[0], gyroval[1], gyroval[2],
-				gyroraw[0], gyroraw[1], gyroraw[2],
-				accelval[1], accelval[3], accelval[5]);
-#endif
-	}
 	timerStop ();
 	pwmStop ();
 

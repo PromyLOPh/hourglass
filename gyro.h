@@ -10,7 +10,8 @@ bool gyroProcess ();
 void gyroResetAccum ();
 int32_t gyroGetZAccum ();
 int16_t gyroGetZRaw ();
-int8_t gyroGetZTicks ();
+int16_t gyroGetZTicks ();
+void gyroResetZTicks ();
 
 #endif /* GYROSCOPE_H */
 

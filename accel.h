@@ -11,6 +11,7 @@ void accelStart ();
 bool accelProcess ();
 int8_t accelGetZ ();
 uint8_t accelGetShakeCount ();
+void accelResetShakeCount ();
 horizon accelGetHorizon ();
 
 #endif /* ACCEL_H */

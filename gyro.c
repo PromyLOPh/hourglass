@@ -24,7 +24,7 @@ static volatile int16_t zval = 0;
 /* accumulated z value */
 static int32_t zaccum = 0;
 /* calculated zticks */
-static int8_t zticks = 0;
+static int16_t zticks = 0;
 /* currently reading from i2c */
 static bool reading = false;
 
@@ -66,16 +66,18 @@ void gyroStart () {
  */
 static void gyroProcessTicks () {
 	const uint8_t shift = 14;
+	const uint32_t max = (1 << shift);
+	const uint32_t mask = ~(max-1);
 
-	if (zaccum > (1 << shift)) {
+	if (zaccum > (int32_t) max) {
 		const uint32_t a = abs (zaccum);
 		zticks += a >> shift;
 		/* mask shift bits */
-		zaccum -= a & (~0x3ff);
-	} else if (zaccum < -(1 << shift)) {
+		zaccum -= a & mask;
+	} else if (zaccum < -((int32_t) max)) {
 		const uint32_t a = abs (zaccum);
 		zticks -= a >> shift;
-		zaccum += a & (~0x3ff);
+		zaccum += a & mask;
 	}
 }
 
@@ -123,7 +125,11 @@ int16_t gyroGetZRaw () {
 	return zval;
 }
 
-int8_t gyroGetZTicks () {
+int16_t gyroGetZTicks () {
 	return zticks;
+}
+
+void gyroResetZTicks () {
+	zticks = 0;
 }
 

@@ -188,6 +188,10 @@ uint8_t accelGetShakeCount () {
 	return shakeCount;
 }
 
+void accelResetShakeCount () {
+	shakeCount = 0;
+}
+
 horizon accelGetHorizon () {
 	return horizonSign;
 }
