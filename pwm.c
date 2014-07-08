@@ -42,12 +42,12 @@ ISR(TIMER0_COMPA_vect) {
 	if (comphit >= 13) {
 		comphit = 0;
 		++state;
-		if (state == 10) {
+		if (state == 12) {
 			state = 0;
 		}
 		val[0] = init[0];
 		val[1] = init[1];
-		if (state == 8 || state % 2 == 0) {
+		if (state >= 10 || state % 2 == 0) {
 			/* end of blink/off state */
 		} else {
 			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
