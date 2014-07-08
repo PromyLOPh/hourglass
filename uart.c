@@ -44,8 +44,9 @@ void uartInit () {
 	/* Set frame format: 8 data, 1 stop bit, even parity */
 	UCSR0C = (1<<UPM01) | (0 << UPM00) | (0<<USBS0)|(3<<UCSZ00);
 
-	/* redirect stdout */
+	/* redirect stdout/stderr */
 	stdout = &mystdout;
+	stderr = &mystdout;
 }
 
 #if 0

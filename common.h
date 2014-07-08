@@ -10,6 +10,8 @@
 	sleep_disable ();
 
 #define __unused__ __attribute__ ((unused))
+/* print assert messages */
+#define __ASSERT_USE_STDERR
 
 #endif /* COMMON_H */
 
