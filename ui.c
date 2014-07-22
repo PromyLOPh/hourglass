@@ -3,7 +3,6 @@
 #include <util/delay.h>
 #include <avr/sleep.h>
 #include <stdio.h>
-#include <assert.h>
 #include <stdlib.h>
 
 #include "ui.h"
@@ -85,7 +84,7 @@ static void doSelectCoarse () {
 		/* stop selection */
 		accelResetShakeCount ();
 		mode = UIMODE_SELECT_FINE;
-		printf ("selectcoarse->selectfine(%i)\n", coarseSeconds);
+		puts ("selectcoarse->selectfine");
 		speakerStart (SPEAKER_BEEP);
 		return;
 	}
@@ -95,7 +94,7 @@ static void doSelectCoarse () {
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
 		coarseSeconds = limits(coarseSeconds + zticks*60*5, 0, 60*60);
-		printf ("c:%it:%i\n", coarseSeconds, zticks);
+		//printf ("c:%it:%i\n", coarseSeconds, zticks);
 
 		pwmStop ();
 		const uint8_t tenminutes = coarseSeconds/60/10;
@@ -117,7 +116,7 @@ static void doSelectFine () {
 		substep = 3;
 		secPerSubstep = (coarseSeconds + fineSeconds)/(6*3);
 		mode = UIMODE_IDLE;
-		printf ("selectfine->idle(%u,%u)\n", coarseSeconds + fineSeconds, secPerSubstep);
+		puts ("selectfine->idle");
 		speakerStart (SPEAKER_BEEP);
 		return;
 	}
@@ -127,7 +126,7 @@ static void doSelectFine () {
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
 		fineSeconds = limits(fineSeconds + zticks*30, -5*60, 5*60);
-		printf ("f:%it:%i\n", fineSeconds, zticks);
+		//printf ("f:%it:%i\n", fineSeconds, zticks);
 
 		pwmStop ();
 		const uint8_t minutes = abs (fineSeconds)/60;
@@ -153,13 +152,13 @@ static void doIdle () {
 		/* start timer */
 		mode = UIMODE_RUN;
 		timerStart ();
-		printf ("idle->run\n");
+		puts ("idle->run");
 		speakerStart (SPEAKER_BEEP);
 	} else if (accelGetShakeCount () >= 2) {
 		/* set timer */
 		accelResetShakeCount ();
 		mode = UIMODE_SELECT_COARSE;
-		printf ("idle->select\n");
+		puts ("idle->select");
 		speakerStart (SPEAKER_BEEP);
 		return;
 	}
@@ -179,7 +178,7 @@ static void doRun () {
 			substep = 3;
 			substepsec = 0;
 		}
-		printf("s:%uss:%u\n", step, substep);
+		//printf("s:%uss:%u\n", step, substep);
 		if (step == 0) {
 			/* blink all leds */
 			pwmStop ();
@@ -189,7 +188,7 @@ static void doRun () {
 			pwmStart ();
 			step = ALARM_TIME;
 			mode = UIMODE_ALARM;
-			printf ("run->alarm\n");
+			puts ("run->alarm");
 			speakerStart (SPEAKER_BEEP);
 		} else {
 			pwmStop ();
@@ -205,7 +204,7 @@ static void doRun () {
 	} else if (horizonChanged) {
 		/* stop timer */
 		mode = UIMODE_IDLE;
-		printf ("run->idle (stopped)\n");
+		puts ("run->idle (stopped)");
 		speakerStart (SPEAKER_BEEP);
 	}
 }
@@ -232,7 +231,7 @@ static void doInit () {
 	h = accelGetHorizon ();
 	if (h != HORIZON_NONE) {
 		mode = UIMODE_IDLE;
-		printf ("init->idle\n");
+		puts ("init->idle");
 		pwmStop ();
 	}
 }

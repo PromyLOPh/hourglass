@@ -2,7 +2,6 @@
 #include <util/twi.h>
 #include <avr/interrupt.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "i2c.h"
 #include "common.h"
@@ -40,7 +39,7 @@ static void twWaitRaw () {
 static bool twWriteRaw (const uint8_t data) {
 	TWDR = data;
 	if (TWCR & (1 << TWWC)) {
-		printf("write collision\n");
+		puts ("write collision");
 		return false;
 	} else {
 		return true;
@@ -137,7 +136,7 @@ static void twIntWrite () {
 			break;
 
 		default:
-			printf ("nope\n");
+			assert (0 && "nope");
 			break;
 	}
 }
@@ -237,7 +236,7 @@ static void twIntRead () {
 			break;
 
 		default:
-			printf ("twIntRead: nope\n");
+			assert (0 && "twIntRead: nope\n");
 			break;
 	}
 }
@@ -253,7 +252,7 @@ ISR(TWI_vect) {
 			break;
 
 		default:
-			printf ("nope\n");
+			assert (0 && "nope\n");
 			break;
 	}
 }

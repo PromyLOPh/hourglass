@@ -56,10 +56,10 @@ void gyroStart () {
 
 	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
-		printf ("cannot start write\n");
+		puts ("cannot start write");
 	}
 	sleepwhile (twr.status == TWST_WAIT);
-	printf ("final twi status was %i\n", twr.status);
+	puts ("gyroStart done");
 }
 
 /*	calculate ticks for z rotation
@@ -95,7 +95,7 @@ bool gyroProcess () {
 			reading = false;
 			return true;
 		} else if (twr.status == TWST_ERR) {
-			printf ("gyro i2c error\n");
+			puts ("gyro i2c error");
 			reading = false;
 		}
 	} else {
@@ -103,7 +103,7 @@ bool gyroProcess () {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, L3GD20, L3GD20_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {
-				printf ("cannot start read\n");
+				puts ("cannot start read");
 			} else {
 				reading = true;
 			}

@@ -41,7 +41,7 @@ int main () {
 	pwmInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
-	printf ("initialization done\n");
+	puts ("initialization done");
 
 	/* global interrupt enable */
 	sei ();
@@ -53,7 +53,7 @@ int main () {
 	timerStop ();
 	pwmStop ();
 
-	printf ("stopped\n");
+	puts ("stopped");
 
 	/* global interrupt disable */
 	cli ();

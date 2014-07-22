@@ -75,10 +75,10 @@ void accelStart () {
 
 	if (!twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
-		printf ("cannot start write\n");
+		puts ("cannot start write");
 	}
 	sleepwhile (twr.status == TWST_WAIT);
-	printf ("final twi status was %i\n", twr.status);
+	puts ("accelStart done");
 }
 
 /*	register shake gesture
@@ -162,7 +162,8 @@ bool accelProcess () {
 			reading = false;
 			return true;
 		} else if (twr.status == TWST_ERR) {
-			printf ("accel i2c error %x at step %i\n", twr.error, twr.step);
+			puts ("accel i2c error: ");
+			fwrite ((void *) &twr.error, sizeof (twr.error), 1, stdout);
 			reading = false;
 		}
 	} else {
@@ -170,7 +171,7 @@ bool accelProcess () {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {
-				printf ("cannot start read\n");
+				puts ("cannot start read");
 			} else {
 				reading = true;
 			}
