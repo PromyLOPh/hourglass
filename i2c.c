@@ -6,7 +6,7 @@
 #include "i2c.h"
 #include "common.h"
 
-volatile twReq twr;
+twReq twr;
 
 static void twStartRaw () {
 	/* disable stop, enable interrupt, reset twint, enable start, enable i2c */

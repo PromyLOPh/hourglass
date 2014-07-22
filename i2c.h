@@ -19,19 +19,19 @@ typedef struct {
 	twMode mode;
 	uint8_t address;
 	uint8_t subaddress;
-	uint8_t step;
+	volatile uint8_t step;
 	/* pointer to read/write data */
-	uint8_t *data;
+	volatile uint8_t *data;
 	/* number of bytes to be read/written */
 	uint8_t count;
 	/* current byte */
-	uint8_t i;
-	twStatus status;
+	volatile uint8_t i;
+	volatile twStatus status;
 	/* i2c bus status at the time if an error occured */
-	uint8_t error;
+	volatile uint8_t error;
 } twReq;
 
-extern volatile twReq twr;
+extern twReq twr;
 
 #include <stdbool.h>
 
