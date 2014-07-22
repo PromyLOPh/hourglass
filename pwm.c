@@ -1,6 +1,8 @@
 /*	LED pwm, uses timer0
  */
 
+#include "common.h"
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <stdbool.h>
@@ -17,6 +19,11 @@ static uint8_t state = 0;
 /* PORTB and PORTB values */
 static uint8_t val[2];
 static uint8_t init[2];
+
+static void ledOff () {
+	PORTB = PORTB & ~((1 << PB6) | (1 << PB7));
+	PORTD = PORTD & ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5));
+}
 
 static uint8_t ledToArray (const uint8_t i) {
 	assert (i < PWM_LED_COUNT);
@@ -59,10 +66,7 @@ ISR(TIMER0_COMPA_vect) {
 	}
 
 	if (comphit % 2 == 0) {
-		/* switch off: we can’t just set to 0 here, since PB6 is used by
-		 * speaker */
-		PORTB = PORTB & ~((1 << PB6) | (1 << PB7));
-		PORTD = PORTD & ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5));
+		ledOff ();
 	} else {
 		PORTB |= val[0];
 		PORTD |= val[1];
@@ -77,6 +81,8 @@ void pwmInit () {
 }
 
 void pwmStart () {
+	comphit = 0;
+	state = 0;
 	/* reset timer value */
 	TCNT0 = 0;
 	/* set ctc timer0 (part 1) */
@@ -92,6 +98,7 @@ void pwmStart () {
 void pwmStop () {
 	/* zero clock source */
 	TCCR0B = 0;
+	ledOff ();
 }
 
 void pwmSetBlink (const uint8_t i, const uint8_t value) {

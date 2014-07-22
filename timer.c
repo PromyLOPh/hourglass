@@ -1,7 +1,8 @@
+#include "common.h"
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#include "common.h"
 #include "timer.h"
 
 /* counts one second, off by +1s per 2m

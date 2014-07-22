@@ -47,7 +47,6 @@ int main () {
 	sei ();
 	gyroStart ();
 	accelStart ();
-	pwmStart ();
 
 	uiLoop ();
 

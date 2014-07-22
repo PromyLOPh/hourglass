@@ -1,8 +1,9 @@
+#include "common.h"
+
 #include <stdio.h>
 #include <avr/io.h>
 
 #include "uart.h"
-#include "common.h"
 
 /* blocking uart send
  */
