@@ -99,7 +99,7 @@ bool gyroProcess () {
 			reading = false;
 		}
 	} else {
-		if (((PINB >> PINB1) & 0x1) && twr.status != TWST_WAIT) {
+		if (((PINB >> PINB1) & 0x1) && twr.status == TWST_OK) {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, L3GD20, L3GD20_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {

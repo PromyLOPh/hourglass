@@ -167,7 +167,7 @@ bool accelProcess () {
 			reading = false;
 		}
 	} else {
-		if (!((PINC >> PINC1) & 0x1) && twr.status != TWST_WAIT) {
+		if (!((PINC >> PINC1) & 0x1) && twr.status == TWST_OK) {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {

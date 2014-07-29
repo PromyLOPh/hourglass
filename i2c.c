@@ -64,14 +64,14 @@ void twInit () {
 #endif
 
 	twr.mode = TWM_INVALID;
-	twr.status = TWST_ERR;
+	twr.status = TWST_OK;
 }
 
 /*	high-level write
  */
 bool twRequest (const twMode mode, const uint8_t address,
 		const uint8_t subaddress, uint8_t * const data, const uint8_t count) {
-	assert (twr.status != TWST_WAIT);
+	assert (twr.status == TWST_OK);
 
 	twr.mode = mode;
 	twr.address = address;
