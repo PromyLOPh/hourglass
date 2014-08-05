@@ -7,21 +7,32 @@
 #include <avr/interrupt.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "speaker.h"
 #include "pwm.h"
 
-/* max count for blinks */
-static uint8_t blink[6];
-static uint8_t comphit = 0;
-static uint8_t state = 0;
-/* PORTB and PORTB values */
-static uint8_t val[2];
-static uint8_t init[2];
+static uint8_t count = 0;
+static uint8_t toggle[PWM_MAX_BRIGHTNESS][2];
+/* led bitfield, indicating which ones are leds */
+static const uint8_t bits[2] = {(1 << PB6) | (1 << PB7),
+		(1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5)};
 
-static void ledOff () {
-	PORTB = PORTB & ~((1 << PB6) | (1 << PB7));
-	PORTD = PORTD & ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5));
+static void allLedsOff () {
+	PORTB &= ~bits[0];
+	PORTD &= ~bits[1];
+}
+
+ISR(TIMER0_COMPA_vect) {
+	/* the 16th+ state is always ignored/force-off */
+	if (count >= PWM_MAX_BRIGHTNESS-1) {
+		allLedsOff ();
+	} else {
+		PORTB ^= toggle[count][0];
+		PORTD ^= toggle[count][1];
+	}
+	/* 16 steps */
+	count = (count+1) & (PWM_MAX_BRIGHTNESS-1);
 }
 
 static uint8_t ledToArray (const uint8_t i) {
@@ -39,49 +50,27 @@ static uint8_t ledToShift (const uint8_t i) {
 	return shifts[i];
 }
 
-/*	All LEDs are off for state % 2 == 0 (off state) or state >= 7 (end of blink
- *	sequence), setting blink[i] = state*2 causes LED i to blink state times
- */
-ISR(TIMER0_COMPA_vect) {
-	++comphit;
-	/* divide by 13 to get ~10 Hz timer */
-	if (comphit >= 13) {
-		comphit = 0;
-		++state;
-		if (state == 12) {
-			state = 0;
-		}
-		val[0] = init[0];
-		val[1] = init[1];
-		if (state >= 10 || state % 2 == 0) {
-			/* end of blink/off state */
-		} else {
-			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-				if (state < blink[i]) {
-					val[ledToArray (i)] |= (1 << ledToShift(i));
-				}
-			}
-		}
-	}
-
-	if (comphit % 2 == 0) {
-		ledOff ();
+#if 0
+static void ledOff (const uint8_t i) {
+	assert (i < PWM_LED_COUNT);
+	if (ledToArray (i) == 0) {
+		PORTB = PORTB & ~(1 << ledToShift (i));
 	} else {
-		PORTB |= val[0];
-		PORTD |= val[1];
+		PORTD = PORTD & ~(1 << ledToShift (i));
 	}
 }
+#endif
 
 void pwmInit () {
 	/* set led1,led2 to output */
 	DDRB |= (1 << PB6) | (1 << PB7);
 	/* set led3,led4,led5,led6 to output */
 	DDRD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5);
+	memset (toggle, 0, sizeof (toggle));
 }
 
 void pwmStart () {
-	comphit = 0;
-	state = 0;
+	count = 0;
 	/* reset timer value */
 	TCNT0 = 0;
 	/* set ctc timer0 (part 1) */
@@ -90,24 +79,35 @@ void pwmStart () {
 	TIMSK0 = (1 << OCIE0A);
 	/* compare value */
 	OCR0A = 255;
-	/* io clock with prescaler 256; ctc (part 2) */
-	TCCR0B = (1 << CS02) | (0 << CS01) | (0 << CS00);
+	/* io clock with prescaler 64; ctc (part 2) */
+	TCCR0B = (0 << CS02) | (1 << CS01) | (1 << CS00);
 }
 
 void pwmStop () {
 	/* zero clock source */
 	TCCR0B = 0;
-	ledOff ();
+	allLedsOff ();
 }
 
-void pwmSetBlink (const uint8_t i, const uint8_t value) {
+/*	Set LED brightness
+ *
+ *	We could switch off interrupts here. Instead use pwmStart/Stop.
+ */
+void pwmSet (const uint8_t i, const uint8_t value) {
 	assert (i < PWM_LED_COUNT);
-	if (value == PWM_BLINK_ON) {
-		/* permanently switch on LED */
-		init[ledToArray (i)] |= (1 << ledToShift (i));
-	} else {
-		init[ledToArray (i)] &= ~(1 << ledToShift (i));
-		blink[i] = value*2;
+	const uint8_t array = ledToArray (i);
+	const uint8_t bit = 1 << ledToShift (i);
+	/* disable all toggles */
+	for (uint8_t j = 0; j < PWM_MAX_BRIGHTNESS; j++) {
+		toggle[j][array] &= ~bit;
 	}
+	uint8_t toggleat;
+	if (value < PWM_MAX_BRIGHTNESS) {
+		toggleat = PWM_MAX_BRIGHTNESS-value;
+	} else {
+		/* max brightness */
+		toggleat = 0;
+	}
+	toggle[toggleat][array] |= bit;
 }
 
