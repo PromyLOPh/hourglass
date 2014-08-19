@@ -1,10 +1,10 @@
 #ifndef TIMER_H
 #define TIMER_H
 
-#include <stdbool.h>
+#include <stdint.h>
 
-void timerStart ();
-bool timerHit ();
+void timerStart (const uint32_t t);
+uint32_t timerHit ();
 void timerStop ();
 
 #endif /* TIMER_H */
