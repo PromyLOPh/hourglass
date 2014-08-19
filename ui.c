@@ -33,11 +33,12 @@ typedef enum {
 } uimode;
 
 static uimode mode = UIMODE_INIT;
-/* timer seconds */
-static int16_t coarseSeconds = 0, fineSeconds = 0;
-static uint8_t step = 0, substep = 0;
-static uint16_t secPerSubstep = 0;
-static uint16_t substepsec = 0;
+/* Selection values */
+static signed char coarseValue = 0, fineValue = 0;
+/* timer seconds (us) */
+static uint32_t timerElapsed = 0, timerValue;
+static uint8_t brightness[PWM_LED_COUNT];
+static uint8_t currLed;
 static horizon h = HORIZON_NONE;
 static bool horizonChanged = false;
 
@@ -77,7 +78,7 @@ static int16_t limits (const int16_t in, const int16_t min, const int16_t max) {
 	}
 }
 
-/*	Timer value selection
+/*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
 	if (accelGetShakeCount () >= 2) {
@@ -93,28 +94,28 @@ static void doSelectCoarse () {
 	const int16_t zticks = gyroGetZTicks ();
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
-		coarseSeconds = limits(coarseSeconds + zticks*60*5, 0, 60*60);
-		//printf ("c:%it:%i\n", coarseSeconds, zticks);
+		coarseValue = limits(coarseValue + zticks, 0, 6);
+		puts ("\ncoarseValue\n");
+		fwrite (&coarseValue, sizeof (coarseValue), 1, stdout);
 
 		pwmStop ();
-		const uint8_t tenminutes = coarseSeconds/60/10;
-		for (uint8_t i = 0; i < tenminutes; i++) {
-			pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
+		for (uint8_t i = 0; i < coarseValue; i++) {
+			pwmSet (horizonLed (i), PWM_ON);
 		}
-		for (uint8_t i = tenminutes; i < PWM_LED_COUNT; i++) {
-			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
+		for (uint8_t i = coarseValue; i < PWM_LED_COUNT; i++) {
+			pwmSet (horizonLed (i), PWM_OFF);
 		}
 		pwmStart ();
 	}
 }
 
+/*	Fine timer setting, selects from -5 to 5 minutes, in 1 min steps
+ */
 static void doSelectFine () {
 	if (accelGetShakeCount () >= 2) {
 		/* stop selection */
 		accelResetShakeCount ();
-		step = 6;
-		substep = 3;
-		secPerSubstep = (coarseSeconds + fineSeconds)/(6*3);
+		pwmStop ();
 		mode = UIMODE_IDLE;
 		puts ("selectfine->idle");
 		speakerStart (SPEAKER_BEEP);
@@ -125,21 +126,27 @@ static void doSelectFine () {
 	const int16_t zticks = gyroGetZTicks ();
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
-		fineSeconds = limits(fineSeconds + zticks*30, -5*60, 5*60);
-		//printf ("f:%it:%i\n", fineSeconds, zticks);
+		fineValue = limits(fineValue + zticks, -5, 5);
+		puts ("\nfineValue\n");
+		fwrite (&fineValue, sizeof (fineValue), 1, stdout);
 
 		pwmStop ();
-		const uint8_t minutes = abs (fineSeconds)/60;
-		for (uint8_t i = 0; i < minutes; i++) {
-			pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
-		}
-		for (uint8_t i = minutes; i < PWM_LED_COUNT-1; i++) {
-			pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
-		}
-		if (fineSeconds < 0) {
-			pwmSetBlink (horizonLed (PWM_LED_COUNT-1), PWM_BLINK_ON);
+		/* from bottom to top for positive values, top to bottom for negative
+		 * values */
+		if (fineValue >= 0) {
+			for (uint8_t i = 0; i < fineValue; i++) {
+				pwmSet (horizonLed (i), PWM_ON);
+			}
+			for (uint8_t i = fineValue; i < PWM_LED_COUNT; i++) {
+				pwmSet (horizonLed (i), PWM_OFF);
+			}
 		} else {
-			pwmSetBlink (horizonLed (PWM_LED_COUNT-1), PWM_BLINK_OFF);
+			for (uint8_t i = 0; i < abs (fineValue); i++) {
+				pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_ON);
+			}
+			for (uint8_t i = abs (fineValue); i < PWM_LED_COUNT; i++) {
+				pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_OFF);
+			}
 		}
 		pwmStart ();
 	}
@@ -150,8 +157,29 @@ static void doSelectFine () {
 static void doIdle () {
 	if (horizonChanged) {
 		/* start timer */
+		pwmStop ();
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			brightness[i] = 0;
+			pwmSet (horizonLed (i), PWM_OFF);
+		}
+		currLed = PWM_LED_COUNT-1;
+		brightness[currLed] = PWM_MAX_BRIGHTNESS;
+		pwmSet (horizonLed (currLed), brightness[currLed]);
+		pwmStart ();
+
+		timerValue = coarseValue * (uint32_t) 10*60*1000*1000 +
+				fineValue * (uint32_t) 60*1000*1000;
+		puts ("\ntimerValue\n");
+		fwrite (&timerValue, sizeof (timerValue), 1, stdout);
+		timerElapsed = 0;
+		/* (PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS states; -1, since two leds’s
+		 * states are interleaved */
+		const uint32_t brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
+		puts ("\nbrightnessStep\n");
+		fwrite (&brightnessStep, sizeof (brightnessStep), 1, stdout);
+
 		mode = UIMODE_RUN;
-		timerStart ();
+		timerStart (brightnessStep);
 		puts ("idle->run");
 		speakerStart (SPEAKER_BEEP);
 	} else if (accelGetShakeCount () >= 2) {
@@ -167,57 +195,51 @@ static void doIdle () {
 /*	Run timer, alarm when count==0 or abort when horizon changed
  */
 static void doRun () {
-	if (timerHit ()) {
-		++substepsec;
-		if (substepsec > secPerSubstep) {
-			--substep;
-			substepsec = 0;
-		}
-		if (substep == 0) {
-			--step;
-			substep = 3;
-			substepsec = 0;
-		}
-		//printf("s:%uss:%u\n", step, substep);
-		if (step == 0) {
-			/* blink all leds */
+	const uint32_t t = timerHit ();
+	if (t > 0) {
+		timerElapsed += t;
+		puts ("\ntimerElapsed");
+		fwrite (&timerElapsed, sizeof (timerElapsed), 1, stdout);
+		if (timerElapsed >= timerValue) {
+			/* ring the alarm! */
 			pwmStop ();
 			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-				pwmSetBlink (i, 1);
+				pwmSet (i, PWM_MAX_BRIGHTNESS);
 			}
 			pwmStart ();
-			step = ALARM_TIME;
 			mode = UIMODE_ALARM;
 			puts ("run->alarm");
 			speakerStart (SPEAKER_BEEP);
 		} else {
+			/* one step */
 			pwmStop ();
-			for (uint8_t i = 0; i < step-1; i++) {
-				pwmSetBlink (horizonLed (i), PWM_BLINK_ON);
-			}
-			pwmSetBlink (horizonLed (step-1), PWM_BLINK_ON);
-			for (uint8_t i = step; i < PWM_LED_COUNT; i++) {
-				pwmSetBlink (horizonLed (i), PWM_BLINK_OFF);
+			--brightness[currLed];
+			pwmSet (horizonLed (currLed), brightness[currLed]);
+			++brightness[currLed-1];
+			pwmSet (horizonLed (currLed-1), brightness[currLed-1]);
+			if (brightness[currLed] == 0 && currLed > 0) {
+				--currLed;
 			}
 			pwmStart ();
+			puts ("\ncurrLed");
+			fwrite (&currLed, sizeof (currLed), 1, stdout);
+			puts ("\nbrightness");
+			fwrite (&brightness, sizeof (brightness), 1, stdout);
 		}
 	} else if (horizonChanged) {
 		/* stop timer */
 		mode = UIMODE_IDLE;
 		puts ("run->idle (stopped)");
 		speakerStart (SPEAKER_BEEP);
+		pwmStop ();
 	}
 }
 
 /*	Run alarm for some time or user interaction, then stop
  */
 static void doAlarm () {
-	if (timerHit ()) {
-		--step;
-	}
-	if (horizonChanged || step == 0) {
+	if (horizonChanged) {
 		timerStop ();
-		step = 0;
 		/* stop blinking */
 		pwmStop ();
 		mode = UIMODE_IDLE;
@@ -233,6 +255,24 @@ static void doInit () {
 		mode = UIMODE_IDLE;
 		puts ("init->idle");
 		pwmStop ();
+
+#if 0
+		/* debugging */
+		mode = UIMODE_RUN;
+		timerValue = (uint32_t) 60*1000*1000;
+		timerElapsed = 0;
+		/* (PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS states; -1, since two leds’s
+		 * states are interleaved */
+		brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
+		puts ("\nbrightnessStep\n");
+		fwrite (&brightnessStep, sizeof (brightnessStep), 1, stdout);
+
+		currLed = PWM_LED_COUNT-1;
+		brightness[currLed] = PWM_MAX_BRIGHTNESS;
+		pwmSet (horizonLed (currLed), brightness[currLed]);
+		pwmStart ();
+		timerStart (brightnessStep);
+#endif
 	}
 }
 
@@ -250,19 +290,19 @@ void uiLoop () {
 #if 0
 	/* LED test mode */
 	uint8_t i = 0;
-	uint8_t blink = 0;
+	uint8_t brightness = 0;
 	while (1) {
 		pwmStop ();
 		for (uint8_t j = 0; j < PWM_LED_COUNT; j++) {
-			pwmSetBlink (horizonLed (j), PWM_BLINK_OFF);
+			pwmSet (horizonLed (j), PWM_OFF);
 		}
-		pwmSetBlink (horizonLed (i), blink == 0 ? PWM_BLINK_ON : blink);
+		pwmSet (horizonLed (i), brightness);
 		++i;
 		if (i >= PWM_LED_COUNT) {
 			i = 0;
-			++blink;
-			if (blink >= 3) {
-				blink = 0;
+			++brightness;
+			if (brightness > PWM_MAX_BRIGHTNESS) {
+				brightness = 0;
 			}
 		}
 		pwmStart ();
