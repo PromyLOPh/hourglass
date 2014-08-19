@@ -11,3 +11,6 @@ sanduhr.hex: sanduhr.elf
 
 program: sanduhr.hex
 	avrdude -p m88 -c avrispmkII -U flash:w:sanduhr.hex  -v -P usb
+
+terminal:
+	avrdude -p m88 -c avrispmkII -t -v -P usb
