@@ -13,7 +13,7 @@
 
 #define sign(x) ((x < 0) ? -1 : 1)
 /* stop alarm after #seconds */
-#define ALARM_TIME 30
+#define ALARM_TIME ((uint32_t) 30*1000*1000)
 
 typedef enum {
 	/* initialize */
@@ -200,6 +200,8 @@ static void doRun () {
 			mode = UIMODE_ALARM;
 			puts ("run->alarm");
 			speakerStart (SPEAKER_BEEP);
+			timerStop ();
+			timerStart (ALARM_TIME);
 		} else {
 			/* one step */
 			--brightness[currLed];
@@ -225,9 +227,13 @@ static void doRun () {
 /*	Run alarm for some time or user interaction, then stop
  */
 static void doAlarm () {
-	if (horizonChanged) {
-		timerStop ();
-		/* stop blinking */
+	const uint32_t t = timerHit ();
+	if (t > 0 || horizonChanged) {
+		/* stop */
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			pwmSet (i, PWM_OFF);
+		}
+		puts ("alarm->idle");
 		mode = UIMODE_IDLE;
 	}
 }
