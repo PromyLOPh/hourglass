@@ -9,29 +9,32 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "speaker.h"
 #include "pwm.h"
 
 static uint8_t count = 0;
-static uint8_t toggle[PWM_MAX_BRIGHTNESS][2];
-/* led bitfield, indicating which ones are leds */
-static const uint8_t bits[2] = {(1 << PB6) | (1 << PB7),
-		(1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5)};
-
-static void allLedsOff () {
-	PORTB &= ~bits[0];
-	PORTD &= ~bits[1];
-}
+static uint8_t speakerCount = 0;
+static uint8_t pwmvalue[PWM_MAX_BRIGHTNESS][2];
+/* led bitfield, indicating which ones are pwm-controlled */
+static const uint8_t offbits[2] = {(uint8_t) ~((1 << PB6) | (1 << PB7)),
+		(uint8_t) ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6))};
 
 ISR(TIMER0_COMPA_vect) {
-	/* the 16th+ state is always ignored/force-off */
-	if (count >= PWM_MAX_BRIGHTNESS-1) {
-		allLedsOff ();
-	} else {
-		PORTB ^= toggle[count][0];
-		PORTD ^= toggle[count][1];
+#warning "speaker works now, led1 and 2 do not work"
+	if (speakerCount > 0) {
+		--speakerCount;
+		/* stop speaker after beep */
+		if (speakerCount == 0) {
+			/* in speakerStart we set every 2nd to 1 */
+			for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
+				pwmvalue[i][1] &= ~(1 << PD6);
+			}
+		}
 	}
-	/* 16 steps */
+
+	PORTB = pwmvalue[count][0];
+	PORTD = pwmvalue[count][1];
+
+	/* auto wrap-around */
 	count = (count+1) & (PWM_MAX_BRIGHTNESS-1);
 }
 
@@ -50,23 +53,12 @@ static uint8_t ledToShift (const uint8_t i) {
 	return shifts[i];
 }
 
-#if 0
-static void ledOff (const uint8_t i) {
-	assert (i < PWM_LED_COUNT);
-	if (ledToArray (i) == 0) {
-		PORTB = PORTB & ~(1 << ledToShift (i));
-	} else {
-		PORTD = PORTD & ~(1 << ledToShift (i));
-	}
-}
-#endif
-
 void pwmInit () {
 	/* set led1,led2 to output */
 	DDRB |= (1 << PB6) | (1 << PB7);
 	/* set led3,led4,led5,led6 to output */
 	DDRD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5);
-	memset (toggle, 0, sizeof (toggle));
+	memset (pwmvalue, 0, sizeof (pwmvalue));
 }
 
 void pwmStart () {
@@ -78,9 +70,14 @@ void pwmStart () {
 	/* enable compare match interrupt */
 	TIMSK0 = (1 << OCIE0A);
 	/* compare value */
-	OCR0A = 255;
+	OCR0A = 1;
 	/* io clock with prescaler 64; ctc (part 2) */
-	TCCR0B = (0 << CS02) | (1 << CS01) | (1 << CS00);
+	TCCR0B = (1 << CS02) | (0 << CS01) | (1 << CS00);
+}
+
+static void allLedsOff () {
+	PORTB &= offbits[0];
+	PORTD &= offbits[1];
 }
 
 void pwmStop () {
@@ -95,19 +92,31 @@ void pwmStop () {
  */
 void pwmSet (const uint8_t i, const uint8_t value) {
 	assert (i < PWM_LED_COUNT);
+	assert (value <= PWM_MAX_BRIGHTNESS);
+
 	const uint8_t array = ledToArray (i);
 	const uint8_t bit = 1 << ledToShift (i);
-	/* disable all toggles */
-	for (uint8_t j = 0; j < PWM_MAX_BRIGHTNESS; j++) {
-		toggle[j][array] &= ~bit;
+
+	for (uint8_t j = 0; j < value; j++) {
+		pwmvalue[j][array] |= bit;
 	}
-	uint8_t toggleat;
-	if (value < PWM_MAX_BRIGHTNESS) {
-		toggleat = PWM_MAX_BRIGHTNESS-value;
-	} else {
-		/* max brightness */
-		toggleat = 0;
+	for (uint8_t j = value; j < PWM_MAX_BRIGHTNESS; j++) {
+		pwmvalue[j][array] &= ~bit;
 	}
-	toggle[toggleat][array] |= bit;
+}
+
+void speakerStart (const speakerMode mode) {
+	/* 12.8ms */
+	speakerCount = 100;
+	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
+		pwmvalue[i][1] |= (1 << PD6);
+	}
+}
+
+void speakerInit () {
+	/* set PD6 to output */
+	DDRD |= (1 << PD6);
+	/* turn off */
+	PORTD = PORTD & ~(1 << PD6);
 }
 

@@ -8,7 +8,6 @@
 #include "ui.h"
 #include "accel.h"
 #include "gyro.h"
-#include "speaker.h"
 #include "timer.h"
 #include "pwm.h"
 
@@ -98,14 +97,12 @@ static void doSelectCoarse () {
 		puts ("\ncoarseValue\n");
 		fwrite (&coarseValue, sizeof (coarseValue), 1, stdout);
 
-		pwmStop ();
 		for (uint8_t i = 0; i < coarseValue; i++) {
 			pwmSet (horizonLed (i), PWM_ON);
 		}
 		for (uint8_t i = coarseValue; i < PWM_LED_COUNT; i++) {
 			pwmSet (horizonLed (i), PWM_OFF);
 		}
-		pwmStart ();
 	}
 }
 
@@ -115,7 +112,6 @@ static void doSelectFine () {
 	if (accelGetShakeCount () >= 2) {
 		/* stop selection */
 		accelResetShakeCount ();
-		pwmStop ();
 		mode = UIMODE_IDLE;
 		puts ("selectfine->idle");
 		speakerStart (SPEAKER_BEEP);
@@ -130,7 +126,6 @@ static void doSelectFine () {
 		puts ("\nfineValue\n");
 		fwrite (&fineValue, sizeof (fineValue), 1, stdout);
 
-		pwmStop ();
 		/* from bottom to top for positive values, top to bottom for negative
 		 * values */
 		if (fineValue >= 0) {
@@ -148,7 +143,6 @@ static void doSelectFine () {
 				pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_OFF);
 			}
 		}
-		pwmStart ();
 	}
 }
 
@@ -157,7 +151,6 @@ static void doSelectFine () {
 static void doIdle () {
 	if (horizonChanged) {
 		/* start timer */
-		pwmStop ();
 		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 			brightness[i] = 0;
 			pwmSet (horizonLed (i), PWM_OFF);
@@ -165,7 +158,6 @@ static void doIdle () {
 		currLed = PWM_LED_COUNT-1;
 		brightness[currLed] = PWM_MAX_BRIGHTNESS;
 		pwmSet (horizonLed (currLed), brightness[currLed]);
-		pwmStart ();
 
 		timerValue = coarseValue * (uint32_t) 10*60*1000*1000 +
 				fineValue * (uint32_t) 60*1000*1000;
@@ -202,17 +194,14 @@ static void doRun () {
 		fwrite (&timerElapsed, sizeof (timerElapsed), 1, stdout);
 		if (timerElapsed >= timerValue) {
 			/* ring the alarm! */
-			pwmStop ();
 			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 				pwmSet (i, PWM_MAX_BRIGHTNESS);
 			}
-			pwmStart ();
 			mode = UIMODE_ALARM;
 			puts ("run->alarm");
 			speakerStart (SPEAKER_BEEP);
 		} else {
 			/* one step */
-			pwmStop ();
 			--brightness[currLed];
 			pwmSet (horizonLed (currLed), brightness[currLed]);
 			++brightness[currLed-1];
@@ -220,7 +209,6 @@ static void doRun () {
 			if (brightness[currLed] == 0 && currLed > 0) {
 				--currLed;
 			}
-			pwmStart ();
 			puts ("\ncurrLed");
 			fwrite (&currLed, sizeof (currLed), 1, stdout);
 			puts ("\nbrightness");
@@ -231,7 +219,6 @@ static void doRun () {
 		mode = UIMODE_IDLE;
 		puts ("run->idle (stopped)");
 		speakerStart (SPEAKER_BEEP);
-		pwmStop ();
 	}
 }
 
@@ -241,7 +228,6 @@ static void doAlarm () {
 	if (horizonChanged) {
 		timerStop ();
 		/* stop blinking */
-		pwmStop ();
 		mode = UIMODE_IDLE;
 	}
 }
@@ -254,7 +240,6 @@ static void doInit () {
 	if (h != HORIZON_NONE) {
 		mode = UIMODE_IDLE;
 		puts ("init->idle");
-		pwmStop ();
 
 #if 0
 		/* debugging */
@@ -270,7 +255,6 @@ static void doInit () {
 		currLed = PWM_LED_COUNT-1;
 		brightness[currLed] = PWM_MAX_BRIGHTNESS;
 		pwmSet (horizonLed (currLed), brightness[currLed]);
-		pwmStart ();
 		timerStart (brightnessStep);
 #endif
 	}
@@ -292,7 +276,6 @@ void uiLoop () {
 	uint8_t i = 0;
 	uint8_t brightness = 0;
 	while (1) {
-		pwmStop ();
 		for (uint8_t j = 0; j < PWM_LED_COUNT; j++) {
 			pwmSet (horizonLed (j), PWM_OFF);
 		}
@@ -305,7 +288,6 @@ void uiLoop () {
 				brightness = 0;
 			}
 		}
-		pwmStart ();
 		_delay_ms (1000);
 	}
 #endif

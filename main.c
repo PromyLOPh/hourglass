@@ -12,7 +12,6 @@
 #include "timer.h"
 #include "gyro.h"
 #include "accel.h"
-#include "speaker.h"
 #include "pwm.h"
 #include "ui.h"
 
@@ -37,8 +36,8 @@ int main () {
 	uartInit ();
 	gyroInit ();
 	accelInit ();
-	speakerInit ();
 	pwmInit ();
+	pwmStart ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
 	puts ("initialization done");
