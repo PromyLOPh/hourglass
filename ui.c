@@ -298,6 +298,35 @@ void uiLoop () {
 	}
 #endif
 
+#if 0
+	/* timer test mode */
+	timerStart ((uint32_t) 10*1000*1000);
+	while (1) {
+		uint32_t t;
+		while (1) {
+			t = timerHit ();
+			if (t > 0) {
+				break;
+			}
+			cpuSleep ();
+		}
+		puts ("on");
+		fwrite (&t, sizeof (t), 1, stdout);
+		pwmSet (horizonLed (0), PWM_ON);
+
+		while (1) {
+			t = timerHit ();
+			if (t > 0) {
+				break;
+			}
+			cpuSleep ();
+		}
+		puts ("off");
+		fwrite (&t, sizeof (t), 1, stdout);
+		pwmSet (horizonLed (0), PWM_OFF);
+	}
+#endif
+
 	while (1) {
 		processSensors ();
 		
