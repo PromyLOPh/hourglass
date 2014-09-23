@@ -23,5 +23,27 @@
 		} \
 	}
 
+#include <stdbool.h>
+
+/* global wakeup flag, incremented by functions that interact with the main
+ * loop (i.e. not pwm) */
+extern volatile uint8_t wakeup;
+
+/* wakeup sources */
+enum {
+	WAKE_ACCEL = 0,
+	WAKE_GYRO = 1,
+	WAKE_I2C = 2,
+	WAKE_TIMER = 3,
+};
+
+#define shouldWakeup(x) (wakeup & (1 << x))
+#define enableWakeup(x) wakeup |= 1 << x;
+#include <util/atomic.h>
+#define disableWakeup(x) \
+	ATOMIC_BLOCK (ATOMIC_FORCEON) { \
+		wakeup &= ~(1 << x); \
+	}
+
 #endif /* COMMON_H */
 

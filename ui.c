@@ -266,14 +266,6 @@ static void doInit () {
 	}
 }
 
-/*	Sleep CPU
- */
-static void cpuSleep () {
-	sleep_enable ();
-	sleep_cpu ();
-	sleep_disable ();
-}
-
 /*	Main loop
  */
 void uiLoop () {
@@ -329,7 +321,7 @@ void uiLoop () {
 
 	while (1) {
 		processSensors ();
-		
+
 		horizon newh = accelGetHorizon ();
 		if (newh != h) {
 			horizonChanged = true;
@@ -367,7 +359,8 @@ void uiLoop () {
 				assert (0 && "invalid ui mode");
 				break;
 		}
-		cpuSleep ();
+
+		sleepwhile (wakeup == 0);
 
 #if 0
 		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), accelGetHorizon (),

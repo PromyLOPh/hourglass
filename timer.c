@@ -22,13 +22,17 @@ ISR(TIMER1_COMPA_vect) {
 	time += OCR1A * US_PER_TICK;
 	if (hits == maxhits-1) {
 		OCR1A = lastcount;
+	} else if (hits >= maxhits) {
+		enableWakeup (WAKE_TIMER);
 	}
 }
 
 /*	Check if timer was hit, return time since last restart or 0 if not hit yet
  */
 uint32_t timerHit () {
-	if (hits >= maxhits) {
+	if (shouldWakeup (WAKE_TIMER)) {
+		disableWakeup (WAKE_TIMER);
+
 		const uint32_t ret = time;
 		/* reset timer, start again */
 		hits = 0;

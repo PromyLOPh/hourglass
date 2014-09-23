@@ -51,7 +51,13 @@ static bool reading = false;
 /* data ready interrupt
  */
 ISR(PCINT1_vect) {
-	/* empty */
+	const bool interrupt = (PINC >> PINC1) & 0x1;
+	/* low-active */
+	if (!interrupt) {
+		enableWakeup (WAKE_ACCEL);
+	} else {
+		disableWakeup (WAKE_ACCEL);
+	}
 }
 
 void accelInit () {
@@ -79,6 +85,7 @@ void accelStart () {
 	}
 	sleepwhile (twr.status == TWST_WAIT);
 	puts ("accelStart done");
+	disableWakeup (WAKE_I2C);
 }
 
 /*	register shake gesture
@@ -154,25 +161,26 @@ static void accelProcessHorizon () {
 }
 
 bool accelProcess () {
-	if (reading) {
+	if (reading && shouldWakeup (WAKE_I2C)) {
+		disableWakeup (WAKE_I2C);
+		reading = false;
 		if (twr.status == TWST_OK) {
 			accelProcessHorizon ();
 			accelProcessShake ();
 			/* new data transfered */
-			reading = false;
 			return true;
 		} else if (twr.status == TWST_ERR) {
 			puts ("accel i2c error: ");
 			fwrite ((void *) &twr.error, sizeof (twr.error), 1, stdout);
-			reading = false;
 		}
 	} else {
-		if (!((PINC >> PINC1) & 0x1) && twr.status == TWST_OK) {
+		if (shouldWakeup (WAKE_ACCEL) && twr.status == TWST_OK) {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {
 				puts ("cannot start read");
 			} else {
+				/* wakeup source is disabled by isr to prevent race condition */
 				reading = true;
 			}
 		}

@@ -255,5 +255,8 @@ ISR(TWI_vect) {
 			assert (0 && "nope\n");
 			break;
 	}
+	if (twr.status == TWST_ERR || twr.status == TWST_OK) {
+		enableWakeup (WAKE_I2C);
+	}
 }
 

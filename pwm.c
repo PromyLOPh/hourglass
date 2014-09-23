@@ -19,7 +19,6 @@ static const uint8_t offbits[2] = {(uint8_t) ~((1 << PB6) | (1 << PB7)),
 		(uint8_t) ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6))};
 
 ISR(TIMER0_COMPA_vect) {
-#warning "speaker works now, led1 and 2 do not work"
 	if (speakerCount > 0) {
 		--speakerCount;
 		/* stop speaker after beep */
@@ -36,6 +35,8 @@ ISR(TIMER0_COMPA_vect) {
 
 	/* auto wrap-around */
 	count = (count+1) & (PWM_MAX_BRIGHTNESS-1);
+
+	/* no wakeup */
 }
 
 static uint8_t ledToArray (const uint8_t i) {
@@ -105,7 +106,7 @@ void pwmSet (const uint8_t i, const uint8_t value) {
 	}
 }
 
-void speakerStart (const speakerMode mode) {
+void speakerStart (const speakerMode mode __unused__) {
 	/* 12.8ms */
 	speakerCount = 100;
 	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
