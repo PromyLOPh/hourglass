@@ -77,6 +77,17 @@ static int16_t limits (const int16_t in, const int16_t min, const int16_t max) {
 	}
 }
 
+/*	Enter idle mode
+ */
+static void enterIdle () {
+	mode = UIMODE_IDLE;
+
+	pwmSet (horizonLed (0), 1);
+	for (uint8_t i = 1; i < PWM_LED_COUNT; i++) {
+		pwmSet (horizonLed (i), PWM_OFF);
+	}
+}
+
 /*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
@@ -114,9 +125,10 @@ static void doSelectFine () {
 	if (accelGetShakeCount () >= 2) {
 		/* stop selection */
 		accelResetShakeCount ();
-		mode = UIMODE_IDLE;
-		puts ("selectfine->idle");
 		speakerStart (SPEAKER_BEEP);
+
+		puts ("selectfine->idle");
+		enterIdle ();
 		return;
 	}
 
@@ -154,8 +166,6 @@ static void doSelectFine () {
 /*	Idle function, waits for timer start or select commands
  */
 static void doIdle () {
-	pwmSet (horizonLed (0), 1);
-
 	if (horizonChanged) {
 		/* start timer */
 		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
@@ -226,9 +236,10 @@ static void doRun () {
 		}
 	} else if (horizonChanged) {
 		/* stop timer */
-		mode = UIMODE_IDLE;
-		puts ("run->idle (stopped)");
 		speakerStart (SPEAKER_BEEP);
+
+		puts ("run->idle (stopped)");
+		enterIdle ();
 	}
 }
 
@@ -237,12 +248,8 @@ static void doRun () {
 static void doAlarm () {
 	const uint32_t t = timerHit ();
 	if (t > 0 || horizonChanged) {
-		/* stop */
-		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-			pwmSet (i, PWM_OFF);
-		}
 		puts ("alarm->idle");
-		mode = UIMODE_IDLE;
+		enterIdle ();
 	}
 }
 
@@ -252,13 +259,8 @@ static void doInit () {
 	/* get initial orientation */
 	h = accelGetHorizon ();
 	if (h != HORIZON_NONE) {
-		/* init done */
-		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-			pwmSet (horizonLed (i), PWM_OFF);
-		}
-
-		mode = UIMODE_IDLE;
 		puts ("init->idle");
+		enterIdle ();
 
 #if 0
 		/* debugging */
