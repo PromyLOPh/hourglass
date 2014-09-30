@@ -15,6 +15,7 @@
 /* registers */
 #define LIS302DL_WHOAMI 0xf
 #define LIS302DL_CTRLREG1 0x20
+#define LIS302DL_CTRLREG2 0x21
 #define LIS302DL_UNUSED1 0x28
 #define LIS302DL_OUTZ 0x2D
 
@@ -84,6 +85,7 @@ void accelStart () {
 		puts ("cannot start write");
 	}
 	sleepwhile (twr.status == TWST_WAIT);
+	assert (twr.status == TWST_OK);
 	puts ("accelStart done");
 	disableWakeup (WAKE_I2C);
 }

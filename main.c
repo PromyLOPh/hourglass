@@ -37,24 +37,10 @@ int main () {
 	gyroInit ();
 	accelInit ();
 	pwmInit ();
-	pwmStart ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 
-	puts ("initialization done");
-
-	/* global interrupt enable */
 	sei ();
-	gyroStart ();
-	accelStart ();
-
 	uiLoop ();
-
-	timerStop ();
-	pwmStop ();
-
-	puts ("stopped");
-
-	/* global interrupt disable */
 	cli ();
 
 	while (1);

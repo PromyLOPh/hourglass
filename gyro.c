@@ -17,6 +17,7 @@
 #define L3GD20_CTRLREG1 0x20
 #define L3GD20_CTRLREG3 0x22
 #define L3GD20_CTRLREG4 0x23
+#define L3GD20_CTRLREG5 0x24
 #define L3GD20_OUTZ 0x2c
 
 /* raw z value */
@@ -65,6 +66,7 @@ void gyroStart () {
 		puts ("cannot start write");
 	}
 	sleepwhile (twr.status == TWST_WAIT);
+	assert (twr.status == TWST_OK);
 	puts ("gyroStart done");
 	disableWakeup (WAKE_I2C);
 }

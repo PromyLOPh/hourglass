@@ -149,6 +149,8 @@ static void doSelectFine () {
 /*	Idle function, waits for timer start or select commands
  */
 static void doIdle () {
+	pwmSet (horizonLed (0), 1);
+
 	if (horizonChanged) {
 		/* start timer */
 		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
@@ -244,6 +246,11 @@ static void doInit () {
 	/* get initial orientation */
 	h = accelGetHorizon ();
 	if (h != HORIZON_NONE) {
+		/* init done */
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			pwmSet (horizonLed (i), PWM_OFF);
+		}
+
 		mode = UIMODE_IDLE;
 		puts ("init->idle");
 
@@ -319,6 +326,21 @@ void uiLoop () {
 	}
 #endif
 
+	/* startup, test all LED’s */
+	pwmStart ();
+	for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+		pwmSet (i, PWM_ON);
+	}
+	gyroStart ();
+	pwmSet (0, PWM_OFF);
+	accelStart ();
+	pwmSet (1, PWM_OFF);
+
+	/* make sure data is read even when missing the first interrupt (i.e.
+	 * reboot) */
+	enableWakeup (WAKE_ACCEL);
+	enableWakeup (WAKE_GYRO);
+
 	while (1) {
 		processSensors ();
 
@@ -374,5 +396,8 @@ void uiLoop () {
 				accelval[1], accelval[3], accelval[5]);
 #endif
 	}
+
+	timerStop ();
+	pwmStop ();
 }
 
