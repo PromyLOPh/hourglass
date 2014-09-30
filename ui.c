@@ -94,6 +94,8 @@ static void doSelectCoarse () {
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
 		coarseValue = limits(coarseValue + zticks, 0, 6);
+		/* at least 1 min */
+		fineValue = coarseValue == 0 ? 1 : 0;
 		puts ("\ncoarseValue\n");
 		fwrite (&coarseValue, sizeof (coarseValue), 1, stdout);
 
@@ -122,7 +124,10 @@ static void doSelectFine () {
 	const int16_t zticks = gyroGetZTicks ();
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
-		fineValue = limits(fineValue + zticks, -5, 5);
+		/* min timer value is 1 minute, disable subtract if coarse is below ten
+		 * minutes */
+		const int8_t bottomlimit = coarseValue == 0 ? 1 : -5;
+		fineValue = limits(fineValue + zticks, bottomlimit, 5);
 		puts ("\nfineValue\n");
 		fwrite (&fineValue, sizeof (fineValue), 1, stdout);
 
@@ -182,6 +187,7 @@ static void doIdle () {
 		mode = UIMODE_SELECT_COARSE;
 		puts ("idle->select");
 		speakerStart (SPEAKER_BEEP);
+		coarseValue = 0;
 		return;
 	}
 }
