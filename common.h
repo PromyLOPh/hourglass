@@ -17,10 +17,7 @@
 #include <avr/interrupt.h>
 #define assert(x) if (!(x)) { \
 		puts("assert in " __FILE__ ":" #x); \
-		sleep_enable (); \
-		while (1) { \
-			sleep_cpu (); \
-		} \
+		shutdownError (); \
 	}
 
 #include <stdbool.h>
@@ -44,6 +41,8 @@ enum {
 	ATOMIC_BLOCK (ATOMIC_FORCEON) { \
 		wakeup &= ~(1 << x); \
 	}
+
+void shutdownError ();
 
 #endif /* COMMON_H */
 
