@@ -19,7 +19,7 @@ uint32_t time;
 
 ISR(TIMER1_COMPA_vect) {
 	++hits;
-	time += OCR1A * US_PER_TICK;
+	time += (uint32_t) OCR1A * (uint32_t) US_PER_TICK;
 	if (hits == maxhits-1) {
 		OCR1A = lastcount;
 	} else if (hits >= maxhits) {
