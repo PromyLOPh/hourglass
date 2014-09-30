@@ -210,7 +210,7 @@ static void doRun () {
 			speakerStart (SPEAKER_BEEP);
 			timerStop ();
 			timerStart (ALARM_TIME);
-		} else {
+		} else if (currLed > 0) {
 			/* one step */
 			--brightness[currLed];
 			pwmSet (horizonLed (currLed), brightness[currLed]);
