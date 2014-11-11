@@ -36,6 +36,7 @@ int main () {
 	uartInit ();
 	gyroInit ();
 	accelInit ();
+	/* pwm must be last, see pwm.c */
 	pwmInit ();
 	set_sleep_mode (SLEEP_MODE_IDLE);
 

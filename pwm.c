@@ -59,7 +59,14 @@ void pwmInit () {
 	DDRB |= (1 << PB6) | (1 << PB7);
 	/* set led3,led4,led5,led6 to output */
 	DDRD |= (1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5);
-	memset (pwmvalue, 0, sizeof (pwmvalue));
+
+	/* gyro uses pb1, get its setup; this function must be called after gyro setup */
+	const uint8_t pbdef = PORTB;
+	const uint8_t pddef = PORTD;
+	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i++) {
+		pwmvalue[i][0] = pbdef;
+		pwmvalue[i][1] = pddef;
+	}
 }
 
 void pwmStart () {
