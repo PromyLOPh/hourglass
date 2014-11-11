@@ -394,13 +394,10 @@ void uiLoop () {
 #if 0
 		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), accelGetHorizon (),
 				accelGetShakeCount ());
-		volatile const int32_t *gyroval = gyroGetAccum ();
-		volatile const int16_t *gyroraw = gyroGetRaw ();
-		volatile const int8_t *accelval = accelGet ();
-		printf ("%li/%li/%li - %i/%i/%i - %i/%i/%i\n",
-				gyroval[0], gyroval[1], gyroval[2],
-				gyroraw[0], gyroraw[1], gyroraw[2],
-				accelval[1], accelval[3], accelval[5]);
+		const int32_t gyroval = gyroGetZAccum ();
+		const int16_t gyroraw = gyroGetZRaw ();
+		const int8_t accelval = accelGetZ ();
+		printf ("%li - %i - %i\n", gyroval, gyroraw, accelval);
 #endif
 	}
 
