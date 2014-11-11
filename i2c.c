@@ -72,6 +72,8 @@ void twInit () {
 bool twRequest (const twMode mode, const uint8_t address,
 		const uint8_t subaddress, uint8_t * const data, const uint8_t count) {
 	assert (twr.status == TWST_OK);
+	assert (count > 0);
+	assert (data != NULL);
 
 	twr.mode = mode;
 	twr.address = address;
@@ -208,7 +210,7 @@ static void twIntRead () {
 			if (status == TW_MR_DATA_ACK) {
 				twr.data[twr.i] = TWDR;
 				++twr.i;
-				if (twr.i < twr.count-1) {
+				if (twr.i < twr.count) {
 					/* read another byte, not the last one */
 					twFlushContRaw ();
 					/* step stays the same */
@@ -225,8 +227,6 @@ static void twIntRead () {
 
 		case 6:
 			if (status == TW_MR_DATA_NACK) {
-				/* receive final byte, send stop */
-				twr.data[twr.i] = TWDR;
 				twStopRaw ();
 				twr.status = TWST_OK;
 			} else {
