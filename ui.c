@@ -257,8 +257,7 @@ static void doAlarm () {
  */
 static void doInit () {
 	/* get initial orientation */
-	h = accelGetHorizon ();
-	if (h != HORIZON_NONE) {
+	if (horizonChanged && h != HORIZON_NONE) {
 		puts ("init->idle");
 		enterIdle ();
 
