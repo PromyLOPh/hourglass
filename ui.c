@@ -23,7 +23,7 @@ typedef enum {
 	/* select time */
 	UIMODE_SELECT_COARSE,
 	UIMODE_SELECT_FINE,
-	/* idle, showing time */
+	/* idle */
 	UIMODE_IDLE,
 	/* count time */
 	UIMODE_RUN,
@@ -88,14 +88,44 @@ static void enterIdle () {
 	}
 }
 
+/*	Set value from fine selection and show with leds
+ */
+static void setFine (const int8_t value) {
+	/* min timer value is 1 minute, disable subtract if coarse is below ten
+	 * minutes */
+	const int8_t bottomlimit = coarseValue == 0 ? 1 : -5;
+	fineValue = limits(value, bottomlimit, 5);
+	puts ("\nfineValue\n");
+	fwrite (&fineValue, sizeof (fineValue), 1, stdout);
+
+	/* from bottom to top for positive values, top to bottom for negative
+	 * values */
+	if (fineValue >= 0) {
+		for (uint8_t i = 0; i < fineValue; i++) {
+			pwmSet (horizonLed (i), PWM_ON);
+		}
+		for (uint8_t i = fineValue; i < PWM_LED_COUNT; i++) {
+			pwmSet (horizonLed (i), PWM_OFF);
+		}
+	} else {
+		for (uint8_t i = 0; i < abs (fineValue); i++) {
+			pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_ON);
+		}
+		for (uint8_t i = abs (fineValue); i < PWM_LED_COUNT; i++) {
+			pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_OFF);
+		}
+	}
+}
+
 /*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
 	if (accelGetShakeCount () >= 2) {
-		/* stop selection */
+		/* selection */
 		accelResetShakeCount ();
 		mode = UIMODE_SELECT_FINE;
 		puts ("selectcoarse->selectfine");
+		setFine (0);
 		speakerStart (SPEAKER_BEEP);
 		return;
 	}
@@ -136,30 +166,7 @@ static void doSelectFine () {
 	const int16_t zticks = gyroGetZTicks ();
 	if (abs (zticks) > 0) {
 		gyroResetZTicks ();
-		/* min timer value is 1 minute, disable subtract if coarse is below ten
-		 * minutes */
-		const int8_t bottomlimit = coarseValue == 0 ? 1 : -5;
-		fineValue = limits(fineValue + zticks, bottomlimit, 5);
-		puts ("\nfineValue\n");
-		fwrite (&fineValue, sizeof (fineValue), 1, stdout);
-
-		/* from bottom to top for positive values, top to bottom for negative
-		 * values */
-		if (fineValue >= 0) {
-			for (uint8_t i = 0; i < fineValue; i++) {
-				pwmSet (horizonLed (i), PWM_ON);
-			}
-			for (uint8_t i = fineValue; i < PWM_LED_COUNT; i++) {
-				pwmSet (horizonLed (i), PWM_OFF);
-			}
-		} else {
-			for (uint8_t i = 0; i < abs (fineValue); i++) {
-				pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_ON);
-			}
-			for (uint8_t i = abs (fineValue); i < PWM_LED_COUNT; i++) {
-				pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_OFF);
-			}
-		}
+		setFine (fineValue + zticks);
 	}
 }
 
