@@ -53,8 +53,8 @@ static bool reading = false;
  */
 ISR(PCINT1_vect) {
 	const bool interrupt = (PINC >> PINC1) & 0x1;
-	/* low-active */
-	if (!interrupt) {
+	/* high-active */
+	if (interrupt) {
 		enableWakeup (WAKE_ACCEL);
 	} else {
 		disableWakeup (WAKE_ACCEL);
@@ -62,9 +62,8 @@ ISR(PCINT1_vect) {
 }
 
 void accelInit () {
-	/* set interrupt lines to input with pull-up */
+	/* set interrupt lines to input */
 	DDRC = DDRC & ~((1 << DDC0) | (1 << DDC1));
-	PORTC = PORTC | (1 << PORTC0) | (1 << PORTC1);
 	/* enable interrupt PCI1 for PCINT8/9 */
 	PCICR = PCICR | (1 << PCIE1);
 	/* enable interrupts from port PC0/PC1 aka PCINT8/PCINT9 */
@@ -76,9 +75,9 @@ void accelStart () {
 	/* configuration:
 	 * disable power-down-mode, enable z-axis
 	 * defaults
-	 * low active, data ready interrupt on int2
+	 * push-pull, high-active, data ready interrupt on int2
 	 */
-	uint8_t data[] = {0b01000100, 0b0, 0b10100000};
+	uint8_t data[] = {0b01000100, 0b0, 0b00100000};
 
 	if (!twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {

@@ -42,9 +42,8 @@ ISR(PCINT0_vect) {
 }
 
 void gyroInit () {
-	/* set PB1 to input, with pull-up */
+	/* set PB1 to input */
 	DDRB = DDRB & ~((1 << DDB1));
-	PORTB = PORTB | (1 << PORTB1);
 	/* enable interrupt PCI0 */
 	PCICR = PCICR | (1 << PCIE0);
 	/* enable interrupts on PB1/PCINT1 */
@@ -56,10 +55,10 @@ void gyroStart () {
 	/* configuration:
 	 * disable power-down-mode, enable z
 	 * defaults
-	 * low-active (does not work?), push-pull, drdy on int2
+	 * high-active, push-pull, drdy on int2
 	 * select 2000dps
 	 */
-	uint8_t data[] = {0b00001100, 0b0, 0b00101000, 0b00110000};
+	uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
 
 	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
