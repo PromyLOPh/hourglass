@@ -57,9 +57,9 @@ void gyroStart () {
 	 * disable power-down-mode, enable z
 	 * defaults
 	 * low-active (does not work?), push-pull, drdy on int2
-	 * select 500dps
+	 * select 2000dps
 	 */
-	uint8_t data[] = {0b00001100, 0b0, 0b00101000, 0b00010000};
+	uint8_t data[] = {0b00001100, 0b0, 0b00101000, 0b00110000};
 
 	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
@@ -74,7 +74,7 @@ void gyroStart () {
 /*	calculate ticks for z rotation
  */
 static void gyroProcessTicks () {
-	const uint8_t shift = 14;
+	const uint8_t shift = 13;
 	const uint32_t max = (1 << shift);
 	const uint32_t mask = ~(max-1);
 
