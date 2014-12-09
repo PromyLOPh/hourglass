@@ -156,6 +156,7 @@ static void doSelectFine () {
 		/* stop selection */
 		accelResetShakeCount ();
 		speakerStart (SPEAKER_BEEP);
+		gyroStop ();
 
 		puts ("selectfine->idle");
 		enterIdle ();
@@ -201,6 +202,7 @@ static void doIdle () {
 	} else if (accelGetShakeCount () >= 2) {
 		/* set timer */
 		accelResetShakeCount ();
+		gyroStart ();
 		mode = UIMODE_SELECT_COARSE;
 		puts ("idle->select");
 		speakerStart (SPEAKER_BEEP);
@@ -345,7 +347,6 @@ void uiLoop () {
 	for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 		pwmSet (i, PWM_ON);
 	}
-	gyroStart ();
 	pwmSet (0, PWM_OFF);
 	accelStart ();
 	pwmSet (1, PWM_OFF);

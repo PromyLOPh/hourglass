@@ -26,8 +26,7 @@ static volatile int16_t zval = 0;
 static int32_t zaccum = 0;
 /* calculated zticks */
 static int16_t zticks = 0;
-/* currently reading from i2c */
-static bool reading = false;
+static enum {STOPPED = 0, STARTING, STOPPING, READING, IDLE} state = STOPPED;
 
 /* data ready interrupt
  */
@@ -50,7 +49,6 @@ void gyroInit () {
 	PCMSK0 = (1 << PCINT1);
 }
 
-/* XXX: make nonblocking */
 void gyroStart () {
 	/* configuration:
 	 * disable power-down-mode, enable z
@@ -58,16 +56,27 @@ void gyroStart () {
 	 * high-active, push-pull, drdy on int2
 	 * select 2000dps
 	 */
-	uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
+	static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
 
-	if (!twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-			sizeof (data)/sizeof (*data))) {
-		puts ("cannot start write");
-	}
-	sleepwhile (twr.status == TWST_WAIT);
-	assert (twr.status == TWST_OK);
-	puts ("gyroStart done");
-	disableWakeup (WAKE_I2C);
+	assert (state == STOPPED);
+
+	const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+			sizeof (data)/sizeof (*data));
+	assert (ret);
+	state = STARTING;
+}
+
+void gyroStop () {
+	/* enable power-down mode */
+	static uint8_t data[] = {0b00000000};
+
+	/* XXX: there might be a race-condition here */
+	assert (state == IDLE);
+
+	const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+			sizeof (data)/sizeof (*data));
+	assert (ret);
+	state = STOPPING;
 }
 
 /*	calculate ticks for z rotation
@@ -92,31 +101,52 @@ static void gyroProcessTicks () {
 /*	process gyro sensor data, returns true if new data is available
  */
 bool gyroProcess () {
-	if (reading && shouldWakeup (WAKE_I2C)) {
-		disableWakeup (WAKE_I2C);
-		reading = false;
-		if (twr.status == TWST_OK) {
-			/* new data transfered, process it */
-			/* poor man's noise filter */
-			if (abs (zval) > 64) {
-				zaccum += zval;
+	switch (state) {
+		case STARTING:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				state = IDLE;
 			}
-			gyroProcessTicks ();
-			return true;
-		} else if (twr.status == TWST_ERR) {
-			puts ("gyro i2c error");
-		}
-	} else {
-		if (shouldWakeup (WAKE_GYRO) && twr.status == TWST_OK) {
-			/* new data available in device buffer and bus is free */
-			if (!twRequest (TWM_READ, L3GD20, L3GD20_OUTZ,
-					(uint8_t *) &zval, sizeof (zval))) {
-				puts ("cannot start read");
-			} else {
+			break;
+
+		case STOPPING:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				state = STOPPED;
+			}
+			break;
+
+		case READING:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				state = IDLE;
+				assert (twr.status != TWST_ERR);
+				if (twr.status == TWST_OK) {
+					/* new data transfered, process it */
+					/* poor man's noise filter */
+					if (abs (zval) > 64) {
+						zaccum += zval;
+					}
+					gyroProcessTicks ();
+					return true;
+				}
+			}
+			break;
+
+		case IDLE:
+			if (shouldWakeup (WAKE_GYRO) && twr.status == TWST_OK) {
+				/* new data available in device buffer and bus is free */
+				const bool ret = twRequest (TWM_READ, L3GD20, L3GD20_OUTZ,
+						(uint8_t *) &zval, sizeof (zval));
+				assert (ret);
 				/* wakeup source is disabled by isr to prevent race condition */
-				reading = true;
+				state = READING;
 			}
-		}
+			break;
+
+		default:
+			/* ignore */
+			break;
 	}
 
 	return false;

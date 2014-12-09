@@ -6,6 +6,7 @@
 
 void gyroInit ();
 void gyroStart ();
+void gyroStop ();
 bool gyroProcess ();
 void gyroResetAccum ();
 int32_t gyroGetZAccum ();
