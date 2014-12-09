@@ -44,5 +44,7 @@ enum {
 
 void shutdownError ();
 
+#define sign(x) ((x < 0) ? -1 : 1)
+
 #endif /* COMMON_H */
 

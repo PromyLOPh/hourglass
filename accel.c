@@ -1,6 +1,7 @@
 #include "common.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -20,25 +21,27 @@
 #define LIS302DL_OUTZ 0x2D
 
 /* value for 1g with +-2g max; measured */
-#define ACCEL_1G_POS (55)
-#define ACCEL_1G_NEG (-55)
+#define ACCEL_1G (55)
 /* offset for horizon detection */
 #define ACCEL_1G_OFF (5)
-/* shake detection values; 2g for +-2g max */
-#define ACCEL_SHAKE_POS (INT8_MAX)
-#define ACCEL_SHAKE_NEG (INT8_MIN)
-/* 250ms for 100Hz data rate */
-#define ACCEL_SHAKE_TIMEOUT (25)
+/* threshold starting shake detection */
+#define ACCEL_SHAKE_START (70)
+/* difference prev and current value to get the current one registered as peak */
+#define ACCEL_SHAKE_REGISTER (120)
+/* 100ms for 100Hz data rate */
+#define ACCEL_SHAKE_TIMEOUT (10)
 
 /* z value */
-static volatile int8_t zval = 0;
+static volatile int8_t zval = 0, zvalnormal = 0;
+
 /* number of times shaken (i.e. peak level measured) */
 static uint8_t shakeCount = 0;
 /* if max in one direction direction has been detected give it some time to
  * wait for max in the other direction */
 static uint8_t shakeTimeout = 0;
-/* sign of last shake peak */
-static enum {SHAKE_NONE, SHAKE_POS, SHAKE_NEG} shakeSign = SHAKE_NONE;
+static int8_t prevShakeVal = 0;
+static uint8_t peakCount = 0;
+
 /* horizon position */
 /* current */
 static horizon horizonSign = HORIZON_NONE;
@@ -46,6 +49,7 @@ static horizon horizonSign = HORIZON_NONE;
 static uint8_t horizonStable = 0;
 /* previous measurement */
 static horizon horizonPrevSign = HORIZON_NONE;
+
 /* currently reading from i2c */
 static bool reading = false;
 
@@ -91,48 +95,31 @@ void accelStart () {
 
 /*	register shake gesture
  *
- *	“shake” means a peak in one direction followed by another one in the other
- *	direction. called for every data set pulled.
+ *	“shake” means three peaks in directions 1, -1, 1
  */
 static void accelProcessShake () {
-	/* detect shake if:
-	 * a) horizon is positive and accel z value is >= ACCEL_SHAKE_POS
-	 * b) horizon is negative and accel z value is >= ACCEL_SHAKE_POS offset by
-	 *    the value for 1g (negative)
-	 * (same for negative horizon)
-	 */
-	if (((zval >= ACCEL_SHAKE_POS &&
-			horizonSign == HORIZON_POS) ||
-			(zval >= (ACCEL_SHAKE_POS + ACCEL_1G_NEG) &&
-			horizonSign == HORIZON_NEG)) &&
-			shakeSign != SHAKE_POS) {
-		/* if we did not time out (i.e. max in other direction has been
-		 * detected) register shake */
-		if (shakeTimeout > 0) {
-			++shakeCount;
-			/* correctly detect double/triple/… shakes; setting this to
-			 * ACCEL_SHAKE_TIMEOUT yields wrong results */
-			shakeTimeout = 0;
-		} else {
+	if (shakeTimeout > 0) {
+		--shakeTimeout;
+		if (abs ((int16_t) prevShakeVal - (int16_t) zvalnormal) > ACCEL_SHAKE_REGISTER) {
+			++peakCount;
 			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
+			prevShakeVal = zvalnormal;
+		} else if (sign (prevShakeVal) == sign (zvalnormal) &&
+				abs (zvalnormal) > abs (prevShakeVal)) {
+			/* actually we did not measure the peak yet */
+			prevShakeVal = zvalnormal;
 		}
-		shakeSign = SHAKE_POS;
-	} else if (((zval <= ACCEL_SHAKE_NEG &&
-			horizonSign == HORIZON_NEG) ||
-			(zval <= (ACCEL_SHAKE_NEG + ACCEL_1G_POS) &&
-			horizonSign == HORIZON_POS)) &&
-			shakeSign != SHAKE_NEG) {
-		if (shakeTimeout > 0) {
-			++shakeCount;
-			shakeTimeout = 0;
-		} else {
-			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
+		if (shakeTimeout == 0) {
+			/* just timed out, can register gesture now. XXX: why 3? */
+			shakeCount += peakCount/3;
 		}
-		shakeSign = SHAKE_NEG;
-	} else {
-		if (shakeTimeout > 0) {
-			--shakeTimeout;
-		}
+	}
+
+	/* start shake detection */
+	if (shakeTimeout == 0 && abs (zvalnormal) > ACCEL_SHAKE_START) {
+		shakeTimeout = ACCEL_SHAKE_TIMEOUT;
+		peakCount = 1;
+		prevShakeVal = zvalnormal;
 	}
 }
 
@@ -142,12 +129,12 @@ static void accelProcessShake () {
  */
 static void accelProcessHorizon () {
 	/* measuring approximately 1g */
-	if (zval > (ACCEL_1G_POS - ACCEL_1G_OFF) &&
-			zval < (ACCEL_1G_POS + ACCEL_1G_OFF) &&
+	if (zval > (ACCEL_1G - ACCEL_1G_OFF) &&
+			zval < (ACCEL_1G + ACCEL_1G_OFF) &&
 			horizonPrevSign == HORIZON_POS && horizonSign != HORIZON_POS) {
 		++horizonStable;
-	} else if (zval < (ACCEL_1G_NEG + ACCEL_1G_OFF)
-			&& zval > (ACCEL_1G_NEG - ACCEL_1G_OFF) &&
+	} else if (zval < (-ACCEL_1G + ACCEL_1G_OFF)
+			&& zval > (-ACCEL_1G - ACCEL_1G_OFF) &&
 			horizonPrevSign == HORIZON_NEG && horizonSign != HORIZON_NEG) {
 		++horizonStable;
 	} else {
@@ -167,6 +154,14 @@ bool accelProcess () {
 		reading = false;
 		if (twr.status == TWST_OK) {
 			accelProcessHorizon ();
+
+			/* calculate normalized z (i.e. without earth gravity component) */
+			if (horizonSign == HORIZON_NEG) {
+				zvalnormal = zval - (-ACCEL_1G);
+			} else if (horizonSign == HORIZON_POS) {
+				zvalnormal = zval - ACCEL_1G;
+			}
+
 			accelProcessShake ();
 			/* new data transfered */
 			return true;
@@ -192,6 +187,10 @@ bool accelProcess () {
 
 int8_t accelGetZ () {
 	return zval;
+}
+
+int8_t accelGetNormalizedZ () {
+	return zvalnormal;
 }
 
 uint8_t accelGetShakeCount () {

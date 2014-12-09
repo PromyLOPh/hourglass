@@ -10,6 +10,7 @@ void accelInit ();
 void accelStart ();
 bool accelProcess ();
 int8_t accelGetZ ();
+int8_t accelGetNormalizedZ ();
 uint8_t accelGetShakeCount ();
 void accelResetShakeCount ();
 horizon accelGetHorizon ();
