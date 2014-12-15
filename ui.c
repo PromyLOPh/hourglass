@@ -219,8 +219,12 @@ static void doIdle () {
 		gyroStart ();
 		mode = UIMODE_SELECT_COARSE;
 		puts ("idle->select");
-		speakerStart (SPEAKER_BEEP);
+		/* start with a value of zero */
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			pwmSet (i, PWM_OFF);
+		}
 		coarseValue = 0;
+		speakerStart (SPEAKER_BEEP);
 		return;
 	}
 }
