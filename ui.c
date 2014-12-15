@@ -128,7 +128,7 @@ static void setFine (const int8_t value) {
 /*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
-	if (accelGetShakeCount () >= 2) {
+	if (accelGetShakeCount () >= 1) {
 		/* selection */
 		accelResetShakeCount ();
 		mode = UIMODE_SELECT_FINE;
@@ -158,7 +158,7 @@ static void doSelectCoarse () {
 /*	Fine timer setting, selects from -5 to 5 minutes, in 1 min steps
  */
 static void doSelectFine () {
-	if (accelGetShakeCount () >= 2) {
+	if (accelGetShakeCount () >= 1) {
 		/* stop selection */
 		accelResetShakeCount ();
 		speakerStart (SPEAKER_BEEP);
@@ -205,7 +205,7 @@ static void doIdle () {
 		timerStart (brightnessStep);
 		puts ("idle->run");
 		speakerStart (SPEAKER_BEEP);
-	} else if (accelGetShakeCount () >= 2) {
+	} else if (accelGetShakeCount () >= 1) {
 		/* set timer */
 		accelResetShakeCount ();
 		gyroStart ();
