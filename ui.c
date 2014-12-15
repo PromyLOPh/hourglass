@@ -12,8 +12,12 @@
 #include "pwm.h"
 
 #define sign(x) ((x < 0) ? -1 : 1)
-/* stop alarm after #seconds */
-#define ALARM_TIME ((uint32_t) 30*1000*1000)
+/* keep the lights on for 10 ms */
+#define ALARM_TIME_FLASH ((uint32_t) 10*1000)
+/* and wait 500 ms */
+#define ALARM_TIME_WAIT ((uint32_t) 500*1000)
+/* flash 30 times */
+#define ALARM_FLASHES 30
 
 typedef enum {
 	/* initialize */
@@ -28,7 +32,8 @@ typedef enum {
 	/* count time */
 	UIMODE_RUN,
 	/* alert */
-	UIMODE_ALARM,
+	UIMODE_ALARM_FLASH,
+	UIMODE_ALARM_WAIT,
 } uimode;
 
 static uimode mode = UIMODE_INIT;
@@ -40,6 +45,7 @@ static uint8_t brightness[PWM_LED_COUNT];
 static uint8_t currLed;
 static horizon h = HORIZON_NONE;
 static bool horizonChanged = false;
+static uint8_t alarmFlashes = 0;
 
 /*	Read sensor values
  */
@@ -86,6 +92,14 @@ static void enterIdle () {
 	for (uint8_t i = 1; i < PWM_LED_COUNT; i++) {
 		pwmSet (horizonLed (i), PWM_OFF);
 	}
+}
+
+static void enterAlarmFlash () {
+	mode = UIMODE_ALARM_FLASH;
+	for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+		pwmSet (i, PWM_ON);
+	}
+	timerStart (ALARM_TIME_FLASH);
 }
 
 /*	Set value from fine selection and show with leds
@@ -224,11 +238,12 @@ static void doRun () {
 			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 				pwmSet (i, PWM_MAX_BRIGHTNESS);
 			}
-			mode = UIMODE_ALARM;
-			puts ("run->alarm");
-			speakerStart (SPEAKER_BEEP);
 			timerStop ();
-			timerStart (ALARM_TIME);
+			puts ("run->alarm");
+			/* beep only once */
+			speakerStart (SPEAKER_BEEP);
+			alarmFlashes = ALARM_FLASHES;
+			enterAlarmFlash ();
 		} else if (currLed > 0) {
 			/* one step */
 			--brightness[currLed];
@@ -252,13 +267,41 @@ static void doRun () {
 	}
 }
 
-/*	Run alarm for some time or user interaction, then stop
+/*	LEDs are currently on, waiting for horizon change (which stops the alarm)
+ *	or next wait period
  */
-static void doAlarm () {
+static void doAlarmFlash () {
 	const uint32_t t = timerHit ();
-	if (t > 0 || horizonChanged) {
+	if (horizonChanged) {
 		puts ("alarm->idle");
 		enterIdle ();
+	} else if (t > 0) {
+		puts ("alarmflash->alarmwait");
+		mode = UIMODE_ALARM_WAIT;
+		timerStop ();
+		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
+			pwmSet (i, PWM_OFF);
+		}
+		timerStart (ALARM_TIME_WAIT);
+	}
+}
+
+/*	LEDs are currently off, waiting for horizon change (which stops the alarm)
+ *	or the next flash period
+ */
+static void doAlarmWait () {
+	const uint32_t t = timerHit ();
+	if (horizonChanged) {
+		puts ("alarmwait->idle");
+		enterIdle ();
+	} else if (t > 0) {
+		if (--alarmFlashes == 0) {
+			puts ("alarmwait->idle");
+			enterIdle ();
+		} else {
+			puts ("alarmwait->alarmflash");
+			enterAlarmFlash ();
+		}
 	}
 }
 
@@ -388,8 +431,12 @@ void uiLoop () {
 				doRun ();
 				break;
 
-			case UIMODE_ALARM:
-				doAlarm ();
+			case UIMODE_ALARM_FLASH:
+				doAlarmFlash ();
+				break;
+
+			case UIMODE_ALARM_WAIT:
+				doAlarmWait ();
 				break;
 
 			default:
