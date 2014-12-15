@@ -88,10 +88,8 @@ static int16_t limits (const int16_t in, const int16_t min, const int16_t max) {
 static void enterIdle () {
 	mode = UIMODE_IDLE;
 
+	pwmSetOff ();
 	pwmSet (horizonLed (0), 1);
-	for (uint8_t i = 1; i < PWM_LED_COUNT; i++) {
-		pwmSet (horizonLed (i), PWM_OFF);
-	}
 }
 
 static void enterAlarmFlash () {
@@ -115,18 +113,14 @@ static void setFine (const int8_t value) {
 	/* from bottom to top for positive values, top to bottom for negative
 	 * values */
 	if (fineValue >= 0) {
+		pwmSetOff ();
 		for (uint8_t i = 0; i < fineValue; i++) {
 			pwmSet (horizonLed (i), PWM_ON);
 		}
-		for (uint8_t i = fineValue; i < PWM_LED_COUNT; i++) {
-			pwmSet (horizonLed (i), PWM_OFF);
-		}
 	} else {
+		pwmSetOff ();
 		for (uint8_t i = 0; i < abs (fineValue); i++) {
 			pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_ON);
-		}
-		for (uint8_t i = abs (fineValue); i < PWM_LED_COUNT; i++) {
-			pwmSet (horizonLed (PWM_LED_COUNT-1-i), PWM_OFF);
 		}
 	}
 }
@@ -154,11 +148,9 @@ static void doSelectCoarse () {
 		puts ("\ncoarseValue\n");
 		fwrite (&coarseValue, sizeof (coarseValue), 1, stdout);
 
+		pwmSetOff ();
 		for (uint8_t i = 0; i < coarseValue; i++) {
 			pwmSet (horizonLed (i), PWM_ON);
-		}
-		for (uint8_t i = coarseValue; i < PWM_LED_COUNT; i++) {
-			pwmSet (horizonLed (i), PWM_OFF);
 		}
 	}
 }
@@ -190,9 +182,9 @@ static void doSelectFine () {
 static void doIdle () {
 	if (horizonChanged) {
 		/* start timer */
+		pwmSetOff ();
 		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 			brightness[i] = 0;
-			pwmSet (horizonLed (i), PWM_OFF);
 		}
 		currLed = PWM_LED_COUNT-1;
 		brightness[currLed] = PWM_MAX_BRIGHTNESS;
@@ -219,12 +211,10 @@ static void doIdle () {
 		gyroStart ();
 		mode = UIMODE_SELECT_COARSE;
 		puts ("idle->select");
-		/* start with a value of zero */
-		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-			pwmSet (i, PWM_OFF);
-		}
-		coarseValue = 0;
 		speakerStart (SPEAKER_BEEP);
+		/* start with a value of zero */
+		pwmSetOff ();
+		coarseValue = 0;
 		return;
 	}
 }
@@ -283,9 +273,7 @@ static void doAlarmFlash () {
 		puts ("alarmflash->alarmwait");
 		mode = UIMODE_ALARM_WAIT;
 		timerStop ();
-		for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-			pwmSet (i, PWM_OFF);
-		}
+		pwmSetOff ();
 		timerStart (ALARM_TIME_WAIT);
 	}
 }
@@ -344,9 +332,7 @@ void uiLoop () {
 	uint8_t i = 0;
 	uint8_t brightness = 0;
 	while (1) {
-		for (uint8_t j = 0; j < PWM_LED_COUNT; j++) {
-			pwmSet (horizonLed (j), PWM_OFF);
-		}
+		pwmSetOff ();
 		pwmSet (horizonLed (i), brightness);
 		++i;
 		if (i >= PWM_LED_COUNT) {

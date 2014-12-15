@@ -14,9 +14,9 @@
 static uint8_t count = 0;
 static uint8_t speakerCount = 0;
 static uint8_t pwmvalue[PWM_MAX_BRIGHTNESS][2];
-/* led bitfield, indicating which ones are pwm-controlled */
-static const uint8_t offbits[2] = {(uint8_t) ~((1 << PB6) | (1 << PB7)),
-		(uint8_t) ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5) | (1 << PD6))};
+/* inversed(!) bitfield, indicating which LEDs are pwm-controlled */
+static const uint8_t notledbits[2] = {(uint8_t) ~((1 << PB6) | (1 << PB7)),
+		(uint8_t) ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5))};
 
 ISR(TIMER0_COMPA_vect) {
 	if (speakerCount > 0) {
@@ -83,15 +83,11 @@ void pwmStart () {
 	TCCR0B = (1 << CS02) | (0 << CS01) | (1 << CS00);
 }
 
-static void allLedsOff () {
-	PORTB &= offbits[0];
-	PORTD &= offbits[1];
-}
-
 void pwmStop () {
 	/* zero clock source */
 	TCCR0B = 0;
-	allLedsOff ();
+	PORTB &= notledbits[0];
+	PORTD &= notledbits[1];
 }
 
 /*	Set LED brightness
@@ -110,6 +106,15 @@ void pwmSet (const uint8_t i, const uint8_t value) {
 	}
 	for (uint8_t j = value; j < PWM_MAX_BRIGHTNESS; j++) {
 		pwmvalue[j][array] &= ~bit;
+	}
+}
+
+/*	Switch all LEDs off
+ */
+void pwmSetOff () {
+	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i++) {
+		pwmvalue[i][0] &= notledbits[0];
+		pwmvalue[i][1] &= notledbits[1];
 	}
 }
 

@@ -6,6 +6,7 @@ void pwmInit ();
 void pwmStart ();
 void pwmStop ();
 void pwmSet (const uint8_t, const uint8_t);
+void pwmSetOff ();
 
 typedef enum {
 	SPEAKER_BEEP,
