@@ -39,7 +39,6 @@ static void twWaitRaw () {
 static bool twWriteRaw (const uint8_t data) {
 	TWDR = data;
 	if (TWCR & (1 << TWWC)) {
-		puts ("write collision");
 		return false;
 	} else {
 		return true;

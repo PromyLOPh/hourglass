@@ -123,8 +123,6 @@ static void setFine (const int8_t value) {
 	 * minutes */
 	const int8_t bottomlimit = coarseValue == 0 ? 1 : -5;
 	fineValue = limits(value, bottomlimit, 5);
-	puts ("\nfineValue\n");
-	fwrite (&fineValue, sizeof (fineValue), 1, stdout);
 
 	/* from bottom to top for positive values, top to bottom for negative
 	 * values */
@@ -148,7 +146,6 @@ static void doSelectCoarse () {
 		/* selection */
 		accelResetShakeCount ();
 		mode = UIMODE_SELECT_FINE;
-		puts ("selectcoarse->selectfine");
 		setFine (0);
 		speakerStart (SPEAKER_BEEP);
 		return;
@@ -161,8 +158,6 @@ static void doSelectCoarse () {
 		coarseValue = limits(coarseValue + zticks, 0, 6);
 		/* at least 1 min */
 		fineValue = coarseValue == 0 ? 1 : 0;
-		puts ("\ncoarseValue\n");
-		fwrite (&coarseValue, sizeof (coarseValue), 1, stdout);
 
 		pwmSetOff ();
 		for (uint8_t i = 0; i < coarseValue; i++) {
@@ -180,7 +175,6 @@ static void doSelectFine () {
 		speakerStart (SPEAKER_BEEP);
 		gyroStop ();
 
-		puts ("selectfine->idle");
 		enterIdle ();
 		return;
 	}
@@ -208,25 +202,19 @@ static void doIdle () {
 
 		timerValue = coarseValue * (uint32_t) 10*60*1000*1000 +
 				fineValue * (uint32_t) 60*1000*1000;
-		puts ("\ntimerValue\n");
-		fwrite (&timerValue, sizeof (timerValue), 1, stdout);
 		timerElapsed = 0;
 		/* (PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS states; -1, since two leds’s
 		 * states are interleaved */
 		const uint32_t brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
-		puts ("\nbrightnessStep\n");
-		fwrite (&brightnessStep, sizeof (brightnessStep), 1, stdout);
 
 		mode = UIMODE_RUN;
 		timerStart (brightnessStep, false);
-		puts ("idle->run");
 		speakerStart (SPEAKER_BEEP);
 	} else if (accelGetShakeCount () >= 1) {
 		/* set timer */
 		accelResetShakeCount ();
 		gyroStart ();
 		mode = UIMODE_SELECT_COARSE;
-		puts ("idle->select");
 		speakerStart (SPEAKER_BEEP);
 		/* start with a value of zero */
 		pwmSetOff ();
@@ -241,15 +229,12 @@ static void doRun () {
 	const uint32_t t = timerHit ();
 	if (t > 0) {
 		timerElapsed += t;
-		puts ("\ntimerElapsed");
-		fwrite (&timerElapsed, sizeof (timerElapsed), 1, stdout);
 		if (timerElapsed >= timerValue) {
 			/* ring the alarm! */
 			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
 				pwmSet (i, PWM_MAX_BRIGHTNESS);
 			}
 			timerStop ();
-			puts ("run->alarm");
 			/* beep only once */
 			speakerStart (SPEAKER_BEEP);
 			enterFlash (FLASH_ALARM);
@@ -262,16 +247,11 @@ static void doRun () {
 			if (brightness[currLed] == 0 && currLed > 0) {
 				--currLed;
 			}
-			puts ("\ncurrLed");
-			fwrite (&currLed, sizeof (currLed), 1, stdout);
-			puts ("\nbrightness");
-			fwrite (&brightness, sizeof (brightness), 1, stdout);
 		}
 	} else if (horizonChanged) {
 		/* stop timer */
 		speakerStart (SPEAKER_BEEP);
 
-		puts ("run->idle (stopped)");
 		enterIdle ();
 	}
 }
@@ -350,7 +330,6 @@ static void doFlashOff () {
 static void doInit () {
 	/* get initial orientation */
 	if (horizonChanged && h != HORIZON_NONE) {
-		puts ("init->idle");
 		enterIdle ();
 
 #if 0
@@ -361,7 +340,6 @@ static void doInit () {
 		/* (PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS states; -1, since two leds’s
 		 * states are interleaved */
 		brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
-		puts ("\nbrightnessStep\n");
 		fwrite (&brightnessStep, sizeof (brightnessStep), 1, stdout);
 
 		currLed = PWM_LED_COUNT-1;

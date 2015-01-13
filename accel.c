@@ -85,11 +85,10 @@ void accelStart () {
 
 	if (!twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
 			sizeof (data)/sizeof (*data))) {
-		puts ("cannot start write");
+		assert (0);
 	}
 	sleepwhile (twr.status == TWST_WAIT);
 	assert (twr.status == TWST_OK);
-	puts ("accelStart done");
 	disableWakeup (WAKE_I2C);
 }
 
@@ -166,15 +165,14 @@ bool accelProcess () {
 			/* new data transfered */
 			return true;
 		} else if (twr.status == TWST_ERR) {
-			puts ("accel i2c error: ");
-			fwrite ((void *) &twr.error, sizeof (twr.error), 1, stdout);
+			assert (0);
 		}
 	} else {
 		if (shouldWakeup (WAKE_ACCEL) && twr.status == TWST_OK) {
 			/* new data available in device buffer and bus is free */
 			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
 					(uint8_t *) &zval, sizeof (zval))) {
-				puts ("cannot start read");
+				assert (0);
 			} else {
 				/* wakeup source is disabled by isr to prevent race condition */
 				reading = true;
