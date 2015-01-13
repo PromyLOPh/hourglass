@@ -11,11 +11,12 @@
 #define MAX_US ((uint32_t) 8388480)
 
 /* max/current timer hits */
-volatile uint8_t maxhits, hits;
+static volatile uint8_t maxhits, hits;
 /* compare value for n-1, last hits */
-uint16_t count, lastcount;
+static uint16_t count, lastcount;
 /* accumulated time since last timeout/call to timerHit (us) */
-uint32_t time;
+static uint32_t time;
+static bool oneshot = false;
 
 ISR(TIMER1_COMPA_vect) {
 	++hits;
@@ -30,24 +31,30 @@ ISR(TIMER1_COMPA_vect) {
 /*	Check if timer was hit, return time since last restart or 0 if not hit yet
  */
 uint32_t timerHit () {
-	if (shouldWakeup (WAKE_TIMER)) {
-		disableWakeup (WAKE_TIMER);
+	uint32_t ret = 0;
+	ATOMIC_BLOCK (ATOMIC_FORCEON) {
+		if (shouldWakeup (WAKE_TIMER)) {
+			disableWakeup (WAKE_TIMER);
 
-		const uint32_t ret = time;
-		/* reset timer, start again */
-		hits = 0;
-		time = 0;
-		OCR1A = count;
-		TCNT1 = 0;
-		return ret;
-	} else {
-		return 0;
+			ret = time;
+			if (oneshot) {
+				timerStop ();
+			} else {
+				/* reset timer, start again */
+				hits = 0;
+				time = 0;
+				OCR1A = count;
+				TCNT1 = 0;
+			}
+		}
 	}
+	return ret;
 }
 
 /*	Start a timer that fires every t us
  */
-void timerStart (const uint32_t t) {
+void timerStart (const uint32_t t, const bool once) {
+	oneshot = once;
 	hits = 0;
 	time = 0;
 
