@@ -21,8 +21,9 @@
 #define FLASH_ALARM_NUM (30)
 
 #define FLASH_ENTER_COARSE_ON ((uint32_t) 50*1000)
-/* time is ignored if _num is one */
-#define FLASH_ENTER_COARSE_OFF ((uint32_t) 50*1000)
+/* time is ignored for ENTER/CONFIRM_COARSE (because _NUM is one), but used for
+ * CONFIRM_FINE */
+#define FLASH_ENTER_COARSE_OFF ((uint32_t) 200*1000)
 #define FLASH_ENTER_COARSE_NUM (1)
 
 #define FLASH_CONFIRM_COARSE_ON FLASH_ENTER_COARSE_ON
