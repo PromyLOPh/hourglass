@@ -82,21 +82,21 @@ static void gyroProcessTicks () {
  */
 bool gyroProcess () {
 	switch (state) {
-		case START_REQUEST:
-			if (twr.status == TWST_OK) {
-				/* configuration:
-				 * disable power-down-mode, enable z
-				 * defaults
-				 * high-active, push-pull, drdy on int2
-				 * select 2000dps
-				 */
-				static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
-				const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-						sizeof (data)/sizeof (*data));
-				assert (ret);
+		case START_REQUEST: {
+			/* configuration:
+			 * disable power-down-mode, enable z
+			 * defaults
+			 * high-active, push-pull, drdy on int2
+			 * select 2000dps
+			 */
+			static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
+			const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+					sizeof (data)/sizeof (*data));
+			if (ret) {
 				state = STARTING;
 			}
 			break;
+		}
 
 		case STARTING:
 			if (shouldWakeup (WAKE_I2C)) {
@@ -105,17 +105,17 @@ bool gyroProcess () {
 			}
 			break;
 
-		case STOP_REQUEST:
-			if (twr.status == TWST_OK) {
-				/* enable power-down mode */
-				static uint8_t data[] = {0b00000000};
+		case STOP_REQUEST: {
+			/* enable power-down mode */
+			static uint8_t data[] = {0b00000000};
 
-				const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-						sizeof (data)/sizeof (*data));
-				assert (ret);
+			const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+					sizeof (data)/sizeof (*data));
+			if (ret) {
 				state = STOPPING;
 			}
 			break;
+		}
 
 		case STOPPING:
 			if (shouldWakeup (WAKE_I2C)) {

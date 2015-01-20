@@ -66,11 +66,15 @@ void twInit () {
 	twr.status = TWST_OK;
 }
 
-/*	high-level write
+/*	high-level write, returns false if bus is busy
  */
 bool twRequest (const twMode mode, const uint8_t address,
 		const uint8_t subaddress, uint8_t * const data, const uint8_t count) {
-	assert (twr.status == TWST_OK);
+	/* busy */
+	if (twr.status != TWST_OK) {
+		return false;
+	}
+
 	assert (count > 0);
 	assert (data != NULL);
 
