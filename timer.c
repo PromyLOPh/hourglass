@@ -25,6 +25,9 @@ ISR(TIMER1_COMPA_vect) {
 		OCR1A = lastcount;
 	} else if (hits >= maxhits) {
 		enableWakeup (WAKE_TIMER);
+		if (oneshot) {
+			timerStop ();
+		}
 	}
 }
 
@@ -37,9 +40,7 @@ uint32_t timerHit () {
 			disableWakeup (WAKE_TIMER);
 
 			ret = time;
-			if (oneshot) {
-				timerStop ();
-			} else {
+			if (!oneshot) {
 				/* reset timer, start again */
 				hits = 0;
 				time = 0;
