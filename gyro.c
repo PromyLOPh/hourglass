@@ -26,7 +26,7 @@ static volatile int16_t zval = 0;
 static int32_t zaccum = 0;
 /* calculated zticks */
 static int16_t zticks = 0;
-static enum {STOPPED = 0, STARTING, STOPPING, READING, IDLE} state = STOPPED;
+static enum {STOPPED = 0, START_REQUEST, STARTING, STOP_REQUEST, STOPPING, READING, IDLE} state = STOPPED;
 
 /* data ready interrupt
  */
@@ -50,33 +50,13 @@ void gyroInit () {
 }
 
 void gyroStart () {
-	/* configuration:
-	 * disable power-down-mode, enable z
-	 * defaults
-	 * high-active, push-pull, drdy on int2
-	 * select 2000dps
-	 */
-	static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
-
 	assert (state == STOPPED);
-
-	const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-			sizeof (data)/sizeof (*data));
-	assert (ret);
-	state = STARTING;
+	state = START_REQUEST;
 }
 
 void gyroStop () {
-	/* enable power-down mode */
-	static uint8_t data[] = {0b00000000};
-
-	/* XXX: there might be a race-condition here */
 	assert (state == IDLE);
-
-	const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-			sizeof (data)/sizeof (*data));
-	assert (ret);
-	state = STOPPING;
+	state = STOP_REQUEST;
 }
 
 /*	calculate ticks for z rotation
@@ -102,10 +82,38 @@ static void gyroProcessTicks () {
  */
 bool gyroProcess () {
 	switch (state) {
+		case START_REQUEST:
+			if (twr.status == TWST_OK) {
+				/* configuration:
+				 * disable power-down-mode, enable z
+				 * defaults
+				 * high-active, push-pull, drdy on int2
+				 * select 2000dps
+				 */
+				static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
+				const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+						sizeof (data)/sizeof (*data));
+				assert (ret);
+				state = STARTING;
+			}
+			break;
+
 		case STARTING:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
 				state = IDLE;
+			}
+			break;
+
+		case STOP_REQUEST:
+			if (twr.status == TWST_OK) {
+				/* enable power-down mode */
+				static uint8_t data[] = {0b00000000};
+
+				const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+						sizeof (data)/sizeof (*data));
+				assert (ret);
+				state = STOPPING;
 			}
 			break;
 
