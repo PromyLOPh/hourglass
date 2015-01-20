@@ -12,12 +12,26 @@
 #include "pwm.h"
 
 #define sign(x) ((x < 0) ? -1 : 1)
+
 /* keep the lights on for 10 ms */
-#define ALARM_TIME_FLASH ((uint32_t) 10*1000)
+#define FLASH_ALARM_ON ((uint32_t) 10*1000)
 /* and wait 500 ms */
-#define ALARM_TIME_WAIT ((uint32_t) 500*1000)
+#define FLASH_ALARM_OFF ((uint32_t) 500*1000)
 /* flash 30 times */
-#define ALARM_FLASHES (30)
+#define FLASH_ALARM_NUM (30)
+
+#define FLASH_ENTER_COARSE_ON ((uint32_t) 50*1000)
+/* time is ignored if _num is one */
+#define FLASH_ENTER_COARSE_OFF ((uint32_t) 50*1000)
+#define FLASH_ENTER_COARSE_NUM (1)
+
+#define FLASH_CONFIRM_COARSE_ON FLASH_ENTER_COARSE_ON
+#define FLASH_CONFIRM_COARSE_OFF FLASH_ENTER_COARSE_OFF
+#define FLASH_CONFIRM_COARSE_NUM FLASH_ENTER_COARSE_NUM
+
+#define FLASH_CONFIRM_FINE_ON FLASH_ENTER_FINE_ON
+#define FLASH_CONFIRM_FINE_OFF FLASH_ENTER_FINE_OFF
+#define FLASH_CONFIRM_FINE_NUM (2)
 
 typedef enum {
 	/* initialize */
@@ -39,6 +53,9 @@ typedef enum {
 typedef enum {
 	FLASH_NONE = 0,
 	FLASH_ALARM,
+	FLASH_ENTER_COARSE,
+	FLASH_CONFIRM_COARSE,
+	FLASH_CONFIRM_FINE,
 } flashmode;
 
 /* nextmode is used for deciding which mode _FLASH transitions into */
@@ -107,13 +124,28 @@ static void enterFlash (const flashmode next) {
 	}
 	switch (fmode) {
 		case FLASH_ALARM:
-			timerStart (ALARM_TIME_FLASH, true);
+			timerStart (FLASH_ALARM_ON, true);
+			break;
+
+		case FLASH_ENTER_COARSE:
+		case FLASH_CONFIRM_COARSE:
+		case FLASH_CONFIRM_FINE:
+			timerStart (FLASH_ENTER_COARSE_ON, true);
 			break;
 
 		default:
 			assert (0);
 			break;
 	}
+}
+
+static void enterCoarse () {
+	gyroStart ();
+	mode = UIMODE_SELECT_COARSE;
+	speakerStart (SPEAKER_BEEP);
+	/* start with a value of zero */
+	pwmSetOff ();
+	coarseValue = 0;
 }
 
 /*	Set value from fine selection and show with leds
@@ -139,15 +171,19 @@ static void setFine (const int8_t value) {
 	}
 }
 
+static void enterFine () {
+	/* selection */
+	mode = UIMODE_SELECT_FINE;
+	setFine (0);
+	speakerStart (SPEAKER_BEEP);
+}
+
 /*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
 	if (accelGetShakeCount () >= 1) {
-		/* selection */
 		accelResetShakeCount ();
-		mode = UIMODE_SELECT_FINE;
-		setFine (0);
-		speakerStart (SPEAKER_BEEP);
+		enterFlash (FLASH_CONFIRM_COARSE);
 		return;
 	}
 
@@ -175,7 +211,7 @@ static void doSelectFine () {
 		speakerStart (SPEAKER_BEEP);
 		gyroStop ();
 
-		enterIdle ();
+		enterFlash (FLASH_CONFIRM_FINE);
 		return;
 	}
 
@@ -213,12 +249,7 @@ static void doIdle () {
 	} else if (accelGetShakeCount () >= 1) {
 		/* set timer */
 		accelResetShakeCount ();
-		gyroStart ();
-		mode = UIMODE_SELECT_COARSE;
-		speakerStart (SPEAKER_BEEP);
-		/* start with a value of zero */
-		pwmSetOff ();
-		coarseValue = 0;
+		enterFlash (FLASH_ENTER_COARSE);
 		return;
 	}
 }
@@ -265,10 +296,15 @@ static void doFlashOn () {
 	switch (fmode) {
 		case FLASH_ALARM:
 			if (horizonChanged) {
-				timerStop ();
 				enterIdle ();
 				stopFlash = true;
 			}
+			break;
+
+		case FLASH_ENTER_COARSE:
+		case FLASH_CONFIRM_COARSE:
+		case FLASH_CONFIRM_FINE:
+			/* pass */
 			break;
 
 		default:
@@ -279,12 +315,18 @@ static void doFlashOn () {
 	if (!stopFlash) {
 		const uint32_t t = timerHit ();
 		if (t > 0) {
+			++flashCount;
 			mode = UIMODE_FLASH_OFF;
-			timerStop ();
 			pwmSetOff ();
 			switch (fmode) {
 				case FLASH_ALARM:
-					timerStart (ALARM_TIME_WAIT, true);
+					timerStart (FLASH_ALARM_OFF, true);
+					break;
+
+				case FLASH_ENTER_COARSE:
+				case FLASH_CONFIRM_COARSE:
+				case FLASH_CONFIRM_FINE:
+					timerStart (FLASH_ENTER_COARSE_OFF, true);
 					break;
 
 				default:
@@ -302,11 +344,30 @@ static void doFlashOff () {
 
 	switch (fmode) {
 		case FLASH_ALARM:
-			if (horizonChanged || flashCount >= ALARM_FLASHES) {
-				timerStop ();
+			if (horizonChanged || flashCount >= FLASH_ALARM_NUM) {
 				enterIdle ();
 				stopFlash = true;
-				flashCount = 0;
+			}
+			break;
+
+		case FLASH_ENTER_COARSE:
+			if (flashCount >= FLASH_ENTER_COARSE_NUM) {
+				enterCoarse ();
+				stopFlash = true;
+			}
+			break;
+
+		case FLASH_CONFIRM_COARSE:
+			if (flashCount >= FLASH_CONFIRM_COARSE_NUM) {
+				enterFine ();
+				stopFlash = true;
+			}
+			break;
+
+		case FLASH_CONFIRM_FINE:
+			if (flashCount >= FLASH_CONFIRM_FINE_NUM) {
+				enterIdle ();
+				stopFlash = true;
 			}
 			break;
 
@@ -318,10 +379,10 @@ static void doFlashOff () {
 	if (!stopFlash) {
 		const uint32_t t = timerHit ();
 		if (t > 0) {
-			++flashCount;
-			timerStop ();
 			enterFlash (fmode);
 		}
+	} else {
+		flashCount = 0;
 	}
 }
 
