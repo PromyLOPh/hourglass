@@ -32,14 +32,15 @@
 #define ACCEL_SHAKE_TIMEOUT (10)
 
 /* z value */
-static volatile int8_t zval = 0, zvalnormal = 0;
+static int8_t zval = 0;
+static int16_t zvalnormal = 0;
 
 /* number of times shaken (i.e. peak level measured) */
 static uint8_t shakeCount = 0;
 /* if max in one direction direction has been detected give it some time to
  * wait for max in the other direction */
 static uint8_t shakeTimeout = 0;
-static int8_t prevShakeVal = 0;
+static int16_t prevShakeVal = 0;
 static uint8_t peakCount = 0;
 
 /* horizon position */
@@ -99,23 +100,27 @@ void accelStart () {
 static void accelProcessShake () {
 	if (shakeTimeout > 0) {
 		--shakeTimeout;
-		if (abs ((int16_t) prevShakeVal - (int16_t) zvalnormal) > ACCEL_SHAKE_REGISTER) {
+		if (sign (prevShakeVal) != sign (zvalnormal) &&
+				abs (prevShakeVal - zvalnormal) >= ACCEL_SHAKE_REGISTER) {
 			++peakCount;
 			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
 			prevShakeVal = zvalnormal;
 		} else if (sign (prevShakeVal) == sign (zvalnormal) &&
-				abs (zvalnormal) > abs (prevShakeVal)) {
-			/* actually we did not measure the peak yet */
+				abs (zvalnormal) >= abs (prevShakeVal)) {
+			/* actually we did not measure the peak yet/are still experiencing it */
 			prevShakeVal = zvalnormal;
+			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
 		}
 		if (shakeTimeout == 0) {
-			/* just timed out, can register gesture now. XXX: why 3? */
-			shakeCount += peakCount/3;
+			/* just timed out, can register gesture now */
+			shakeCount += peakCount/2;
+			prevShakeVal = 0;
+			peakCount = 0;
 		}
 	}
 
 	/* start shake detection */
-	if (shakeTimeout == 0 && abs (zvalnormal) > ACCEL_SHAKE_START) {
+	if (shakeTimeout == 0 && abs (zvalnormal) >= ACCEL_SHAKE_START) {
 		shakeTimeout = ACCEL_SHAKE_TIMEOUT;
 		peakCount = 1;
 		prevShakeVal = zvalnormal;
