@@ -34,30 +34,30 @@
 #define FLASH_CONFIRM_FINE_OFF FLASH_ENTER_FINE_OFF
 #define FLASH_CONFIRM_FINE_NUM (2)
 
-typedef enum {
-	/* initialize */
-	UIMODE_INIT = 0,
-	/* deep sleep */
-	UIMODE_SLEEP,
-	/* select time */
-	UIMODE_SELECT_COARSE,
-	UIMODE_SELECT_FINE,
-	/* idle */
-	UIMODE_IDLE,
-	/* count time */
-	UIMODE_RUN,
-	/* flash leds */
-	UIMODE_FLASH_ON,
-	UIMODE_FLASH_OFF,
-} uimode;
+/* UI modes, enum would take 16 bits */
+typedef uint8_t uimode;
+/* initialize */
+#define UIMODE_INIT 0
+/* deep sleep */
+#define UIMODE_SLEEP 1
+/* select time */
+#define UIMODE_SELECT_COARSE 2
+#define UIMODE_SELECT_FINE 3
+/* idle */
+#define UIMODE_IDLE 4
+/* count time */
+#define UIMODE_RUN 5
+/* flash leds */
+#define UIMODE_FLASH_ON 6
+#define UIMODE_FLASH_OFF 7
 
-typedef enum {
-	FLASH_NONE = 0,
-	FLASH_ALARM,
-	FLASH_ENTER_COARSE,
-	FLASH_CONFIRM_COARSE,
-	FLASH_CONFIRM_FINE,
-} flashmode;
+/* flash modes */
+typedef uint8_t flashmode;
+#define FLASH_NONE 0
+#define FLASH_ALARM 1
+#define FLASH_ENTER_COARSE 2
+#define FLASH_CONFIRM_COARSE 3
+#define FLASH_CONFIRM_FINE 4
 
 /* nextmode is used for deciding which mode _FLASH transitions into */
 static uimode mode = UIMODE_INIT;

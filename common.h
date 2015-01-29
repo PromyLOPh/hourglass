@@ -27,12 +27,10 @@
 extern volatile uint8_t wakeup;
 
 /* wakeup sources */
-enum {
-	WAKE_ACCEL = 0,
-	WAKE_GYRO = 1,
-	WAKE_I2C = 2,
-	WAKE_TIMER = 3,
-};
+#define WAKE_ACCEL 0
+#define WAKE_GYRO 1
+#define WAKE_I2C 2
+#define WAKE_TIMER 3
 
 #define shouldWakeup(x) (wakeup & (1 << x))
 #define enableWakeup(x) wakeup |= 1 << x;

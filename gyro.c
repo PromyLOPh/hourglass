@@ -26,7 +26,15 @@ static volatile int16_t zval = 0;
 static int32_t zaccum = 0;
 /* calculated zticks */
 static int16_t zticks = 0;
-static enum {STOPPED = 0, START_REQUEST, STARTING, STOP_REQUEST, STOPPING, READING, IDLE} state = STOPPED;
+
+#define STOPPED 0
+#define START_REQUEST 1
+#define STARTING 2
+#define STOP_REQUEST 3
+#define STOPPING 4
+#define READING 5
+#define IDLE 6
+static uint8_t state = STOPPED;
 
 /* data ready interrupt
  */

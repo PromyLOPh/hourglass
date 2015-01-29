@@ -1,17 +1,17 @@
 #ifndef TW_H
 #define TW_H
 
-typedef enum {
-	TWM_INVALID = 0,
-	TWM_WRITE,
-	TWM_READ,
-} twMode;
+#include <stdint.h>
 
-typedef enum {
-	TWST_WAIT = 0,
-	TWST_OK = 1,
-	TWST_ERR = 2,
-} twStatus;
+typedef uint8_t twMode;
+#define TWM_INVALID 0
+#define TWM_WRITE 1
+#define TWM_READ 2
+
+typedef uint8_t twStatus;
+#define TWST_WAIT 0
+#define TWST_OK 1
+#define TWST_ERR 2
 
 #include <stdint.h>
 

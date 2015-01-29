@@ -4,7 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef enum {HORIZON_NONE, HORIZON_POS, HORIZON_NEG} horizon;
+#define HORIZON_NONE 0
+#define HORIZON_POS 1
+#define HORIZON_NEG 2
+
+typedef uint8_t horizon;
 
 void accelInit ();
 void accelStart ();

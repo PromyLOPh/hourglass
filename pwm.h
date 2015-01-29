@@ -8,9 +8,8 @@ void pwmStop ();
 void pwmSet (const uint8_t, const uint8_t);
 void pwmSetOff ();
 
-typedef enum {
-	SPEAKER_BEEP,
-} speakerMode;
+typedef uint8_t speakerMode;
+#define SPEAKER_BEEP 0
 
 void speakerStart (const speakerMode);
 
