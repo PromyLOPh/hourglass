@@ -25,7 +25,7 @@
 /* offset for horizon detection */
 #define ACCEL_1G_OFF (5)
 /* threshold starting shake detection */
-#define ACCEL_SHAKE_START (70)
+#define ACCEL_SHAKE_START (90)
 /* difference prev and current value to get the current one registered as peak */
 #define ACCEL_SHAKE_REGISTER (120)
 /* 100ms for 100Hz data rate */
@@ -42,6 +42,7 @@ static uint8_t shakeCount = 0;
 static uint8_t shakeTimeout = 0;
 static int16_t prevShakeVal = 0;
 static uint8_t peakCount = 0;
+static horizon shakeHorizon = HORIZON_NONE;
 
 /* horizon position */
 /* current */
@@ -100,7 +101,12 @@ void accelStart () {
 static void accelProcessShake () {
 	if (shakeTimeout > 0) {
 		--shakeTimeout;
-		if (sign (prevShakeVal) != sign (zvalnormal) &&
+		if (horizonSign != shakeHorizon) {
+			/* ignore if horizon changed */
+			shakeTimeout = 0;
+			prevShakeVal = 0;
+			peakCount = 0;
+		} else if (sign (prevShakeVal) != sign (zvalnormal) &&
 				abs (prevShakeVal - zvalnormal) >= ACCEL_SHAKE_REGISTER) {
 			++peakCount;
 			shakeTimeout = ACCEL_SHAKE_TIMEOUT;
@@ -124,6 +130,7 @@ static void accelProcessShake () {
 		shakeTimeout = ACCEL_SHAKE_TIMEOUT;
 		peakCount = 1;
 		prevShakeVal = zvalnormal;
+		shakeHorizon = horizonSign;
 	}
 }
 
