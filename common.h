@@ -2,7 +2,7 @@
 #define COMMON_H
 
 /* cpu runs at n mhz */
-#define F_CPU 8000000
+#define F_CPU 1000000
 
 #define sleepwhile(cond) \
 	sleep_enable (); \

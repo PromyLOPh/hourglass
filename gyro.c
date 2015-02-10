@@ -136,16 +136,15 @@ bool gyroProcess () {
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
 				state = IDLE;
-				assert (twr.status != TWST_ERR);
-				if (twr.status == TWST_OK) {
-					/* new data transfered, process it */
-					/* poor man's noise filter */
-					if (abs (zval) > 64) {
-						zaccum += zval;
-					}
-					gyroProcessTicks ();
-					return true;
+				/* the bus might be in use again already */
+				//assert (twr.status == TWST_OK);
+				/* new data transfered, process it */
+				/* poor man's noise filter */
+				if (abs (zval) > 64) {
+					zaccum += zval;
 				}
+				gyroProcessTicks ();
+				return true;
 			}
 			break;
 

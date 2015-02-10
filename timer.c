@@ -5,10 +5,22 @@
 
 #include "timer.h"
 
-/* useconds per clock tick */
+/* prescaler is 1024 */
+#define PRESCALER ((1 << CS12) | (1 << CS10))
+
+#if F_CPU == 1000000
+/* with divider 1024 each tick is 1024us */
+#define US_PER_TICK 1024
+#define MAX_US ((uint32_t) 67107840)
+#elif F_CPU == 8000000
+/* with divider 1024 each clock tick is 128us with a rounding error of 64us
+ * per second/4ms per minute, since it’s a 16 bit timer we support up to
+ * 2**16-1 ticks, which is 8388480us (8s) */
 #define US_PER_TICK 128
-/* max useconds with max OCRA1 */
 #define MAX_US ((uint32_t) 8388480)
+#else
+#error "cpu speed not supported"
+#endif
 
 /* max/current timer hits */
 static volatile uint8_t maxhits, hits;
@@ -66,10 +78,6 @@ void timerStart (const uint32_t t, const bool once) {
 	/* enable compare match interrupt */
 	TIMSK1 = (1 << OCIE1A);
 	/* set compare value */
-#if F_CPU == 8000000
-	/* with divider 1024 each clock tick is 128us with a rounding error of 64us
-	 * per second/4ms per minute, since it’s a 16 bit timer we support up to
-	 * 2**16-1 ticks, which is 8388480us (8s) */
 	if (t >= MAX_US) {
 		maxhits = t/MAX_US+1;
 		count = UINT16_MAX;
@@ -82,11 +90,9 @@ void timerStart (const uint32_t t, const bool once) {
 		lastcount = tdiv;
 		OCR1A = tdiv;
 	}
-#else
-#error "cpu speed not supported"
-#endif
-	/* io clock with 1024 prescaler; ctc (part 2) */
-	TCCR1B = (1 << CS12) | (1 << CS10) | (1 << WGM12);
+
+	/* prescaler and ctc (part 2) */
+	TCCR1B = PRESCALER | (1 << WGM12);
 }
 
 void timerStop () {

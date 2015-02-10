@@ -79,8 +79,8 @@ void pwmStart () {
 	TIMSK0 = (1 << OCIE0A);
 	/* compare value */
 	OCR0A = 1;
-	/* io clock with prescaler 64; ctc (part 2) */
-	TCCR0B = (1 << CS02) | (0 << CS01) | (1 << CS00);
+	/* io clock with prescaler 256; ctc (part 2) */
+	TCCR0B = (1 << CS02) | (0 << CS01) | (0 << CS00);
 }
 
 void pwmStop () {

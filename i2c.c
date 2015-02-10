@@ -47,17 +47,20 @@ static bool twWriteRaw (const uint8_t data) {
 
 void twInit () {
 #if F_CPU == 1000000
-	/* set scl to 3.6 kHz */
+	/* set scl to 50 kHz */
 	TWBR = 2;
-	TWSR |= 0x3; /* set prescaler to 64 */
+	/* prescaler 1 */
+	TWSR &= ~((1 << TWPS1) | (1 << TWPS0));
 #elif F_CPU == 4000000
 	/* set scl to 50 kHz ? */
 	TWBR = 32;
-	TWSR |= 0x0; /* set prescaler to 0 */
+	/* prescaler 1 */
+	TWSR &= ~((1 << TWPS1) | (1 << TWPS0));
 #elif F_CPU == 8000000
 	/* set scl to 100 kHz */
 	TWBR = 32;
-	TWSR |= 0x0; /* set prescaler to 0 */
+	/* prescaler 1 */
+	TWSR &= ~((1 << TWPS1) | (1 << TWPS0));
 #else
 #error "cpu speed not supported"
 #endif
@@ -135,6 +138,8 @@ static void twIntWrite () {
 			if (TW_STATUS == TW_MT_DATA_ACK) {
 				twStopRaw ();
 				twr.status = TWST_OK;
+				enableWakeup (WAKE_I2C);
+				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
 			}
@@ -232,6 +237,8 @@ static void twIntRead () {
 			if (status == TW_MR_DATA_NACK) {
 				twStopRaw ();
 				twr.status = TWST_OK;
+				enableWakeup (WAKE_I2C);
+				++twr.step;
 			} else {
 				twr.status = TWST_ERR;
 				twr.error = status;
@@ -258,8 +265,6 @@ ISR(TWI_vect) {
 			assert (0 && "nope\n");
 			break;
 	}
-	if (twr.status == TWST_ERR || twr.status == TWST_OK) {
-		enableWakeup (WAKE_I2C);
-	}
+	assert (twr.status != TWST_ERR);
 }
 

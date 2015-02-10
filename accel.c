@@ -163,22 +163,20 @@ bool accelProcess () {
 	if (reading && shouldWakeup (WAKE_I2C)) {
 		disableWakeup (WAKE_I2C);
 		reading = false;
-		if (twr.status == TWST_OK) {
-			accelProcessHorizon ();
+		/* the bus might be in use again already */
+		//assert (twr.status == TWST_OK);
+		accelProcessHorizon ();
 
-			/* calculate normalized z (i.e. without earth gravity component) */
-			if (horizonSign == HORIZON_NEG) {
-				zvalnormal = zval - (-ACCEL_1G);
-			} else if (horizonSign == HORIZON_POS) {
-				zvalnormal = zval - ACCEL_1G;
-			}
-
-			accelProcessShake ();
-			/* new data transfered */
-			return true;
-		} else if (twr.status == TWST_ERR) {
-			assert (0);
+		/* calculate normalized z (i.e. without earth gravity component) */
+		if (horizonSign == HORIZON_NEG) {
+			zvalnormal = zval - (-ACCEL_1G);
+		} else if (horizonSign == HORIZON_POS) {
+			zvalnormal = zval - ACCEL_1G;
 		}
+
+		accelProcessShake ();
+		/* new data transfered */
+		return true;
 	} else {
 		if (shouldWakeup (WAKE_ACCEL) && twr.status == TWST_OK) {
 			/* new data available in device buffer and bus is free */
