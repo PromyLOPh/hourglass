@@ -12,7 +12,7 @@ typedef uint8_t horizon;
 
 void accelInit ();
 void accelStart ();
-bool accelProcess ();
+void accelProcess ();
 int8_t accelGetZ ();
 int8_t accelGetNormalizedZ ();
 uint8_t accelGetShakeCount ();

@@ -149,11 +149,9 @@ bool gyroProcess () {
 			break;
 
 		case IDLE:
-			if (shouldWakeup (WAKE_GYRO) && twr.status == TWST_OK) {
-				/* new data available in device buffer and bus is free */
-				const bool ret = twRequest (TWM_READ, L3GD20, L3GD20_OUTZ,
-						(uint8_t *) &zval, sizeof (zval));
-				assert (ret);
+			/* new data available in device buffer and bus is free */
+			if (shouldWakeup (WAKE_GYRO) && twRequest (TWM_READ, L3GD20,
+						L3GD20_OUTZ, (uint8_t *) &zval, sizeof (zval))) {
 				/* wakeup source is disabled by isr to prevent race condition */
 				state = READING;
 			}

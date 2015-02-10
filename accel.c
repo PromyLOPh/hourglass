@@ -52,8 +52,15 @@ static uint8_t horizonStable = 0;
 /* previous measurement */
 static horizon horizonPrevSign = HORIZON_NONE;
 
-/* currently reading from i2c */
-static bool reading = false;
+/* driver state */
+#define STOPPED 0
+#define START_REQUEST 1
+#define STARTING 2
+#define STOP_REQUEST 3
+#define STOPPING 4
+#define READING 5
+#define IDLE 6
+static uint8_t state = STOPPED;
 
 /* data ready interrupt
  */
@@ -76,22 +83,10 @@ void accelInit () {
 	PCMSK1 = (1 << PCINT9) | (1 << PCINT8);
 }
 
-/* XXX: make nonblocking */
 void accelStart () {
-	/* configuration:
-	 * disable power-down-mode, enable z-axis
-	 * defaults
-	 * push-pull, high-active, data ready interrupt on int2
-	 */
-	uint8_t data[] = {0b01000100, 0b0, 0b00100000};
+	assert (state == STOPPED);
+	state = START_REQUEST;
 
-	if (!twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
-			sizeof (data)/sizeof (*data))) {
-		assert (0);
-	}
-	sleepwhile (twr.status == TWST_WAIT);
-	assert (twr.status == TWST_OK);
-	disableWakeup (WAKE_I2C);
 }
 
 /*	register shake gesture
@@ -159,38 +154,62 @@ static void accelProcessHorizon () {
 	horizonPrevSign = zval >= 0 ? HORIZON_POS : HORIZON_NEG;
 }
 
-bool accelProcess () {
-	if (reading && shouldWakeup (WAKE_I2C)) {
-		disableWakeup (WAKE_I2C);
-		reading = false;
-		/* the bus might be in use again already */
-		//assert (twr.status == TWST_OK);
-		accelProcessHorizon ();
+void accelProcess () {
+	switch (state) {
+		case START_REQUEST: {
+			/* configuration:
+			 * disable power-down-mode, enable z-axis
+			 * defaults
+			 * push-pull, high-active, data ready interrupt on int2
+			 */
+			static uint8_t data[] = {0b01000100, 0b0, 0b00100000};
 
-		/* calculate normalized z (i.e. without earth gravity component) */
-		if (horizonSign == HORIZON_NEG) {
-			zvalnormal = zval - (-ACCEL_1G);
-		} else if (horizonSign == HORIZON_POS) {
-			zvalnormal = zval - ACCEL_1G;
-		}
-
-		accelProcessShake ();
-		/* new data transfered */
-		return true;
-	} else {
-		if (shouldWakeup (WAKE_ACCEL) && twr.status == TWST_OK) {
-			/* new data available in device buffer and bus is free */
-			if (!twRequest (TWM_READ, LIS302DL, LIS302DL_OUTZ,
-					(uint8_t *) &zval, sizeof (zval))) {
-				assert (0);
-			} else {
-				/* wakeup source is disabled by isr to prevent race condition */
-				reading = true;
+			const bool ret = twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
+					sizeof (data)/sizeof (*data));
+			if (ret) {
+				state = STARTING;
 			}
+			break;
 		}
-	}
 
-	return false;
+		case STARTING:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				state = IDLE;
+			}
+			break;
+
+		case IDLE:
+			/* new data available in device buffer and bus is free */
+			if (shouldWakeup (WAKE_ACCEL) && twRequest (TWM_READ, LIS302DL,
+						LIS302DL_OUTZ, (uint8_t *) &zval, sizeof (zval))) {
+				state = READING;
+			}
+			break;
+
+		case READING:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				state = IDLE;
+				/* the bus might be in use again already */
+				//assert (twr.status == TWST_OK);
+				accelProcessHorizon ();
+
+				/* calculate normalized z (i.e. without earth gravity component) */
+				if (horizonSign == HORIZON_NEG) {
+					zvalnormal = zval - (-ACCEL_1G);
+				} else if (horizonSign == HORIZON_POS) {
+					zvalnormal = zval - ACCEL_1G;
+				}
+
+				accelProcessShake ();
+			}
+			break;
+
+		default:
+			assert (0);
+			break;
+	}
 }
 
 int8_t accelGetZ () {
