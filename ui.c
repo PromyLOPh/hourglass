@@ -417,6 +417,7 @@ static void doInit () {
 void uiLoop () {
 #if 0
 	/* LED test mode */
+	pwmStart ();
 	uint8_t i = 0;
 	uint8_t brightness = 0;
 	while (1) {
@@ -430,7 +431,7 @@ void uiLoop () {
 				brightness = 0;
 			}
 		}
-		_delay_ms (1000);
+		_delay_ms (250);
 	}
 #endif
 
