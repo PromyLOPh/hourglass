@@ -11,12 +11,25 @@
 
 #include "pwm.h"
 
+/* Slow mode for LEDs only */
+#define SLOW_PRESCALER ((1 << CS02) | (0 << CS01) | (1 << CS00))
+/* Fast mode with speaker */
+#define FAST_PRESCALER ((1 << CS02) | (0 << CS01) | (0 << CS00))
+
 static uint8_t count = 0;
 static uint8_t speakerCount = 0;
 static uint8_t pwmvalue[PWM_MAX_BRIGHTNESS][2];
 /* inversed(!) bitfield, indicating which LEDs are pwm-controlled */
 static const uint8_t notledbits[2] = {(uint8_t) ~((1 << PB6) | (1 << PB7)),
 		(uint8_t) ~((1 << PD2) | (1 << PD3) | (1 << PD4) | (1 << PD5))};
+
+static void enableSlow () {
+	TCCR0B = SLOW_PRESCALER;
+}
+
+static void enableFast () {
+	TCCR0B = FAST_PRESCALER;
+}
 
 ISR(TIMER0_COMPA_vect) {
 	if (speakerCount > 0) {
@@ -27,6 +40,7 @@ ISR(TIMER0_COMPA_vect) {
 			for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
 				pwmvalue[i][1] &= ~(1 << PD6);
 			}
+			enableSlow ();
 		}
 	}
 
@@ -79,8 +93,7 @@ void pwmStart () {
 	TIMSK0 = (1 << OCIE0A);
 	/* compare value */
 	OCR0A = 1;
-	/* io clock with prescaler 256; ctc (part 2) */
-	TCCR0B = (1 << CS02) | (0 << CS01) | (0 << CS00);
+	enableSlow ();
 }
 
 void pwmStop () {
@@ -124,6 +137,7 @@ void speakerStart (const speakerMode mode __unused__) {
 	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
 		pwmvalue[i][1] |= (1 << PD6);
 	}
+	enableFast ();
 }
 
 void speakerInit () {
