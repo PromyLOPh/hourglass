@@ -461,21 +461,10 @@ void uiLoop () {
 	accelStart ();
 	pwmSet (1, PWM_OFF);
 
-	/* make sure data is read even when missing the first interrupt (i.e.
-	 * reboot) */
-	enableWakeup (WAKE_ACCEL);
-	enableWakeup (WAKE_GYRO);
-
 	while (1) {
 		processSensors ();
 
-		horizon newh = accelGetHorizon ();
-		if (newh != h) {
-			horizonChanged = true;
-		} else {
-			horizonChanged = false;
-		}
-		h = newh;
+		h = accelGetHorizon (&horizonChanged);
 
 		switch (mode) {
 			case UIMODE_INIT:
@@ -514,12 +503,11 @@ void uiLoop () {
 		sleepwhile (wakeup == 0);
 
 #if 0
-		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), accelGetHorizon (),
+		printf ("t=%i, h=%i, s=%i\n", gyroGetZTicks (), h,
 				accelGetShakeCount ());
 		const int32_t gyroval = gyroGetZAccum ();
 		const int16_t gyroraw = gyroGetZRaw ();
-		const int8_t accelval = accelGetZ ();
-		printf ("%li - %i - %i\n", gyroval, gyroraw, accelval);
+		printf ("%li - %i\n", gyroval, gyroraw);
 #endif
 	}
 

@@ -13,11 +13,9 @@ typedef uint8_t horizon;
 void accelInit ();
 void accelStart ();
 void accelProcess ();
-int8_t accelGetZ ();
-int8_t accelGetNormalizedZ ();
-uint8_t accelGetShakeCount ();
+horizon accelGetHorizon (bool * const);
 void accelResetShakeCount ();
-horizon accelGetHorizon ();
+uint8_t accelGetShakeCount ();
 
 #endif /* ACCEL_H */
 
