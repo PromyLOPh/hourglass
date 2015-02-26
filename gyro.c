@@ -30,11 +30,11 @@ static int16_t zticks = 0;
 #define STOPPED 0
 #define START_REQUEST 1
 #define STARTING 2
-#define STOP_REQUEST 3
 #define STOPPING 4
 #define READING 5
 #define IDLE 6
 static uint8_t state = STOPPED;
+static bool shouldStop = false;
 
 /* data ready interrupt
  */
@@ -60,11 +60,11 @@ void gyroInit () {
 void gyroStart () {
 	assert (state == STOPPED);
 	state = START_REQUEST;
+	shouldStop = false;
 }
 
 void gyroStop () {
-	assert (state == IDLE);
-	state = STOP_REQUEST;
+	shouldStop = true;
 }
 
 /*	calculate ticks for z rotation
@@ -113,18 +113,6 @@ bool gyroProcess () {
 			}
 			break;
 
-		case STOP_REQUEST: {
-			/* enable power-down mode */
-			static uint8_t data[] = {0b00000000};
-
-			const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-					sizeof (data)/sizeof (*data));
-			if (ret) {
-				state = STOPPING;
-			}
-			break;
-		}
-
 		case STOPPING:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
@@ -149,12 +137,21 @@ bool gyroProcess () {
 			break;
 
 		case IDLE:
-			/* new data available in device buffer and bus is free */
-			if (shouldWakeup (WAKE_GYRO) && twRequest (TWM_READ, L3GD20,
+			if (shouldStop) {
+				/* enable power-down mode */
+				static uint8_t data[] = {0b00000000};
+
+				if (twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+						sizeof (data)/sizeof (*data))) {
+					state = STOPPING;
+				}
+			} else if (shouldWakeup (WAKE_GYRO) && twRequest (TWM_READ, L3GD20,
 						L3GD20_OUTZ, (uint8_t *) &zval, sizeof (zval))) {
+				/* new data available in device buffer and bus is free */
 				/* wakeup source is disabled by isr to prevent race condition */
 				state = READING;
 			}
+
 			break;
 
 		default:
