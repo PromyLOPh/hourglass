@@ -14,3 +14,7 @@ program: sanduhr.hex
 
 terminal:
 	avrdude -p m88 -c avrispmkII -t -v -P usb
+
+reset:
+	avrdude -p m88 -c avrispmkII -n
+
