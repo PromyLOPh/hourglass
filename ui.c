@@ -84,10 +84,10 @@ typedef uint8_t flashmode;
 static uimode mode = UIMODE_INIT;
 static flashmode fmode = FLASH_NONE;
 static uint8_t flashCount = 0;
-/* Selection values */
+/* Temporary persistence while selecting */
 static signed char coarseValue = 0, fineValue = 0;
-/* timer seconds (us) */
-static uint32_t timerElapsed = 0, timerValue;
+/* Actual elapsed/alarm time in us */
+static uint32_t timerElapsed, timerValue;
 static uint8_t brightness[PWM_LED_COUNT];
 static uint8_t currLed;
 static horizon h = HORIZON_NONE;
@@ -135,6 +135,7 @@ static void enterIdle () {
 	mode = UIMODE_IDLE;
 
 	pwmStop ();
+	gyroStop ();
 }
 
 static void enterFlash (const flashmode next) {
@@ -202,6 +203,13 @@ static void enterFine () {
 /*	Coarse timer setting, selects from 0 to 60 minutes, in 10 min steps
  */
 static void doSelectCoarse () {
+	/* abort without setting value */
+	if (horizonChanged) {
+		enterIdle ();
+		return;
+	}
+
+	/* switch to fine selection */
 	if (accelGetShakeCount () >= 1) {
 		accelResetShakeCount ();
 		enterFlash (FLASH_CONFIRM_COARSE);
@@ -226,8 +234,16 @@ static void doSelectCoarse () {
 /*	Fine timer setting, selects from -5 to 5 minutes, in 1 min steps
  */
 static void doSelectFine () {
+	/* abort without setting value */
+	if (horizonChanged) {
+		enterIdle ();
+		return;
+	}
+
 	if (accelGetShakeCount () >= 1) {
-		/* stop selection */
+		/* stop selection, actually set timer */
+		timerValue = coarseValue * (uint32_t) 10*60*1000*1000 +
+				fineValue * (uint32_t) 60*1000*1000;
 		accelResetShakeCount ();
 		speakerStart (SPEAKER_BEEP);
 		gyroStop ();
@@ -256,13 +272,11 @@ static void doIdle () {
 		currLed = PWM_LED_COUNT-1;
 		brightness[currLed] = PWM_MAX_BRIGHTNESS;
 		pwmSet (horizonLed (currLed), brightness[currLed]);
-
-		timerValue = coarseValue * (uint32_t) 10*60*1000*1000 +
-				fineValue * (uint32_t) 60*1000*1000;
-		timerElapsed = 0;
 		/* (PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS states; -1, since two leds’s
 		 * states are interleaved */
 		const uint32_t brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
+
+		timerElapsed = 0;
 
 		mode = UIMODE_RUN;
 		pwmStart ();
