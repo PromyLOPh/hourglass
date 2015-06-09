@@ -277,19 +277,24 @@ static void doIdle () {
 	}
 }
 
-/*	Run timer, alarm when count==0 or abort when horizon changed
+/*	Run timer
  */
 static void doRun () {
+	/* horizon change is more important than timer, thus checked first */
+	if (horizonChanged) {
+		/* stop timer */
+		speakerStart (SPEAKER_BEEP);
+
+		enterIdle ();
+		return;
+	}
+
 	const uint32_t t = timerHit ();
 	if (t > 0) {
 		timerElapsed += t;
 		if (timerElapsed >= timerValue) {
-			/* ring the alarm! */
-			for (uint8_t i = 0; i < PWM_LED_COUNT; i++) {
-				pwmSet (i, PWM_MAX_BRIGHTNESS);
-			}
 			timerStop ();
-			/* beep only once */
+			/* ring the alarm! */
 			speakerStart (SPEAKER_BEEP);
 			enterFlash (FLASH_ALARM);
 		} else if (currLed > 0) {
@@ -302,11 +307,6 @@ static void doRun () {
 				--currLed;
 			}
 		}
-	} else if (horizonChanged) {
-		/* stop timer */
-		speakerStart (SPEAKER_BEEP);
-
-		enterIdle ();
 	}
 }
 
