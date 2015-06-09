@@ -34,8 +34,6 @@ THE SOFTWARE.
 #include "timer.h"
 #include "pwm.h"
 
-#define sign(x) ((x < 0) ? -1 : 1)
-
 /* keep the lights on for 10 ms */
 #define FLASH_ALARM_ON ((uint32_t) 10*1000)
 /* and wait 500 ms */
@@ -131,13 +129,12 @@ static int16_t limits (const int16_t in, const int16_t min, const int16_t max) {
 	}
 }
 
-/*	Enter idle mode
+/*	Enter low-power idle mode
  */
 static void enterIdle () {
 	mode = UIMODE_IDLE;
 
-	pwmSetOff ();
-	pwmSet (horizonLed (0), 1);
+	pwmStop ();
 }
 
 static void enterFlash (const flashmode next) {
@@ -268,10 +265,12 @@ static void doIdle () {
 		const uint32_t brightnessStep = timerValue/(uint32_t) ((PWM_LED_COUNT-1)*PWM_MAX_BRIGHTNESS);
 
 		mode = UIMODE_RUN;
+		pwmStart ();
 		timerStart (brightnessStep, false);
 		speakerStart (SPEAKER_BEEP);
 	} else if (accelGetShakeCount () >= 1) {
 		/* set timer */
+		pwmStart ();
 		accelResetShakeCount ();
 		enterFlash (FLASH_ENTER_COARSE);
 		return;
