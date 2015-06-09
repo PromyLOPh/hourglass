@@ -21,12 +21,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-/*	We use two freefall wakup thresholds:
- *	1) Shake detection with >= 127 (~2g), actual value is ignored
- *	2) Horizon detection with <= 60 (~1g) for 100ms, if the interrupt is
- *	   asserted the actual value has to be read to determine the horizon
- */
-
 #include "common.h"
 
 #include <stdio.h>
@@ -39,6 +33,13 @@ THE SOFTWARE.
 
 #include "i2c.h"
 #include "accel.h"
+
+/* configuration */
+/* horizon trigger threshold ~0.75g and duration 15*10ms */
+#define HORIZON_THRESHOLD 48
+#define HORIZON_DURATION 15
+/* shake detect trashold ~2g */
+#define SHAKE_THRESHOLD 120
 
 /* device address */
 #define LIS302DL 0b00111000
@@ -53,6 +54,9 @@ THE SOFTWARE.
 #define LIS302DL_FFWUTHS1 0x32
 #define LIS302DL_FFWUCFG2 0x34
 #define LIS302DL_FFWUTHS2 0x36
+
+/* bit positions in registers, see chip docs */
+#define ZHIE 5
 
 static int8_t zval;
 static uint8_t shakeCount = 0;
@@ -104,6 +108,8 @@ void accelInit () {
 void accelStart () {
 	assert (state == STOPPED);
 	state = START_REQUEST;
+	/* make sure the current horizon is read at startup */
+	enableWakeup (WAKE_ACCEL_HORIZON);
 }
 
 void accelProcess () {
@@ -122,23 +128,22 @@ void accelProcess () {
 		}
 
 		/* set up ff_wu_1 (horizon detection) */
-		case STARTING_A: {
-			puts ("setting thresh wu1");
-			/* threshold 60 (~1g), duration 100ms (10 steps at 10ms) */
-			static uint8_t data[] = {0b00111100, 0b1010};
-			if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS1, data,
-					sizeof (data)/sizeof (*data))) {
-				state = STARTING_B;
+		case STARTING_A:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				static uint8_t data[] = {HORIZON_THRESHOLD, HORIZON_DURATION};
+				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS1, data,
+						sizeof (data)/sizeof (*data))) {
+					state = STARTING_B;
+				}
 			}
 			break;
-		}
 
 		case STARTING_B:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
-				puts ("setting events wu1");
-				/* or events, enable interrupt on z low event */
-				static uint8_t data[] = {0b00010000};
+				/* enable interrupt on z high event */
+				static uint8_t data[] = {1 << ZHIE};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUCFG1, data,
 						sizeof (data)/sizeof (*data))) {
 					state = STARTING_C;
@@ -147,23 +152,22 @@ void accelProcess () {
 			break;
 
 		/* set up ff_wu_2 (shake detection) */
-		case STARTING_C: {
-			puts ("setting thresh wu2");
-			/* threshold 127 (~2g) (duration, next register, not modified) */
-			static uint8_t data[] = {0b01111111};
-			if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS2, data,
-					sizeof (data)/sizeof (*data))) {
-				state = STARTING_D;
+		case STARTING_C:
+			if (shouldWakeup (WAKE_I2C)) {
+				disableWakeup (WAKE_I2C);
+				static uint8_t data[] = {SHAKE_THRESHOLD};
+				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS2, data,
+						sizeof (data)/sizeof (*data))) {
+					state = STARTING_D;
+				}
 			}
 			break;
-		}
 
 		case STARTING_D:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
-				puts ("setting events wu2");
-				/* or events, enable interrupt on z high event (+/-) */
-				static uint8_t data[] = {0b00100000};
+				/* or events, enable interrupt on z high event */
+				static uint8_t data[] = {1 << ZHIE};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUCFG2, data,
 						sizeof (data)/sizeof (*data))) {
 					state = STARTING_E;
@@ -174,7 +178,6 @@ void accelProcess () {
 		case STARTING_E:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
-				puts ("setting int");
 				/* push-pull, low-active, FF_WU_1 on int1, FF_WU_2 on int2 */
 				static uint8_t data[] = {0b10010001};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG3, data,
@@ -187,7 +190,6 @@ void accelProcess () {
 		case STARTING_F:
 			if (shouldWakeup (WAKE_I2C)) {
 				disableWakeup (WAKE_I2C);
-				puts ("ffwu setup done");
 				state = IDLE;
 			}
 			break;
@@ -212,12 +214,12 @@ void accelProcess () {
 				//assert (twr.status == TWST_OK);
 
 				if (zval >= 0) {
-					if (horizonSign == HORIZON_NEG) {
+					if (horizonSign != HORIZON_POS) {
 						horizonChanged = true;
 					}
 					horizonSign = HORIZON_POS;
 				} else {
-					if (horizonSign == HORIZON_POS) {
+					if (horizonSign != HORIZON_NEG) {
 						horizonChanged = true;
 					}
 					horizonSign = HORIZON_NEG;
@@ -240,7 +242,7 @@ horizon accelGetHorizon (bool * const changed) {
 }
 
 uint8_t accelGetShakeCount () {
-	return shakeCount;
+	return shakeCount/2;
 }
 
 void accelResetShakeCount () {
