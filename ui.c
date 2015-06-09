@@ -318,7 +318,8 @@ static void doFlashOn () {
 
 	switch (fmode) {
 		case FLASH_ALARM:
-			if (horizonChanged) {
+			if (horizonChanged || accelGetShakeCount () > 0) {
+				accelResetShakeCount ();
 				enterIdle ();
 				stopFlash = true;
 			}
@@ -367,7 +368,9 @@ static void doFlashOff () {
 
 	switch (fmode) {
 		case FLASH_ALARM:
-			if (horizonChanged || flashCount >= FLASH_ALARM_NUM) {
+			if (horizonChanged || accelGetShakeCount () > 0 ||
+						flashCount >= FLASH_ALARM_NUM) {
+				accelResetShakeCount ();
 				enterIdle ();
 				stopFlash = true;
 			}
