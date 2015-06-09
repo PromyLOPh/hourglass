@@ -155,12 +155,12 @@ void pwmSetOff () {
 }
 
 void speakerStart (const speakerMode mode __unused__) {
-	/* 12.8ms */
-	speakerCount = 100;
+	enableFast ();
 	for (uint8_t i = 0; i < PWM_MAX_BRIGHTNESS; i += 2) {
 		pwmvalue[i][1] |= (1 << PD6);
 	}
-	enableFast ();
+	/* 12.8ms */
+	speakerCount = 100;
 }
 
 void speakerInit () {
