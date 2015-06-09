@@ -55,6 +55,9 @@ THE SOFTWARE.
 #define FLASH_CONFIRM_FINE_OFF FLASH_ENTER_FINE_OFF
 #define FLASH_CONFIRM_FINE_NUM (2)
 
+/* timer defaults to 3 min upon startup */
+#define DEFAULT_TIMER_VALUE ((uint32_t) 3*60*1000*1000)
+
 /* UI modes, enum would take 16 bits */
 typedef uint8_t uimode;
 /* initialize */
@@ -87,7 +90,7 @@ static uint8_t flashCount = 0;
 /* Temporary persistence while selecting */
 static signed char coarseValue = 0, fineValue = 0;
 /* Actual elapsed/alarm time in us */
-static uint32_t timerElapsed, timerValue;
+static uint32_t timerElapsed, timerValue = DEFAULT_TIMER_VALUE;
 static uint8_t brightness[PWM_LED_COUNT];
 static uint8_t currLed;
 static horizon h = HORIZON_NONE;
