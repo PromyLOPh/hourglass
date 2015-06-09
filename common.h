@@ -67,6 +67,8 @@ extern volatile uint8_t wakeup;
 void shutdownError ();
 
 #define sign(x) ((x < 0) ? -1 : 1)
+/* get an array’s size/length */
+#define length(x) (sizeof(x)/sizeof(*x))
 
 #endif /* COMMON_H */
 

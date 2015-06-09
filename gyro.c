@@ -121,9 +121,8 @@ bool gyroProcess () {
 			 * select 2000dps
 			 */
 			static uint8_t data[] = {0b00001100, 0b0, 0b00001000, 0b00110000};
-			const bool ret = twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-					sizeof (data)/sizeof (*data));
-			if (ret) {
+			if (twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
+					length (data))) {
 				state = STARTING;
 			}
 			break;
@@ -165,7 +164,7 @@ bool gyroProcess () {
 				static uint8_t data[] = {0b00000000};
 
 				if (twRequest (TWM_WRITE, L3GD20, L3GD20_CTRLREG1, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STOPPING;
 				}
 			} else if (shouldWakeup (WAKE_GYRO) && twRequest (TWM_READ, L3GD20,

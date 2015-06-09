@@ -121,7 +121,7 @@ void accelProcess () {
 			static uint8_t data[] = {0b01000100};
 
 			if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG1, data,
-					sizeof (data)/sizeof (*data))) {
+					length (data))) {
 				state = STARTING_A;
 			}
 			break;
@@ -133,7 +133,7 @@ void accelProcess () {
 				disableWakeup (WAKE_I2C);
 				static uint8_t data[] = {HORIZON_THRESHOLD, HORIZON_DURATION};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS1, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STARTING_B;
 				}
 			}
@@ -145,7 +145,7 @@ void accelProcess () {
 				/* enable interrupt on z high event */
 				static uint8_t data[] = {1 << ZHIE};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUCFG1, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STARTING_C;
 				}
 			}
@@ -157,7 +157,7 @@ void accelProcess () {
 				disableWakeup (WAKE_I2C);
 				static uint8_t data[] = {SHAKE_THRESHOLD};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUTHS2, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STARTING_D;
 				}
 			}
@@ -169,7 +169,7 @@ void accelProcess () {
 				/* or events, enable interrupt on z high event */
 				static uint8_t data[] = {1 << ZHIE};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_FFWUCFG2, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STARTING_E;
 				}
 			}
@@ -181,7 +181,7 @@ void accelProcess () {
 				/* push-pull, low-active, FF_WU_1 on int1, FF_WU_2 on int2 */
 				static uint8_t data[] = {0b10010001};
 				if (twRequest (TWM_WRITE, LIS302DL, LIS302DL_CTRLREG3, data,
-						sizeof (data)/sizeof (*data))) {
+						length (data))) {
 					state = STARTING_F;
 				}
 			}
